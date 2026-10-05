@@ -1,0 +1,19 @@
+[project]
+name = "factory"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "RafalW3bCraft", email = "thewhitefalcon13@proton.me" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "band-sdk[opencode]>=4.0.0",
+]
+
+[project.scripts]
+factory = "factory:main"
+
+[build-system]
+requires = ["uv_build>=0.12.10,<0.13.0"]
+build-backend = "uv_build"

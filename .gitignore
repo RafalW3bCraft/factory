@@ -1,9 +1,16 @@
-.venv/
+# Secrets — never commit these
 .env
+*.env
 agent_config.yaml
-.venv/
-.env
-agent_config.yaml
-.venv/
-.env
-agent_config.yaml
+opencode.json
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
