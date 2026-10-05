@@ -38,7 +38,7 @@ them at any software project.
 |---|---|---|---|---|
 | `foreman` | Foreman | OpenCode | `zai-org/GLM-5.3-Flash` | See *Stand it up from scratch* |
 | `smith` | Smith | OpenCode | `zai-org/GLM-5.3-Flash` | See *Stand it up from scratch* |
-| `inspector` | Inspector | OpenCode | `zai-org/GLM-5.3-Flash` | See *Stand it up from scratch* |
+| `inspector` | Inspector | OpenCode | `MiniMaxAI/MiniMax-M2.5` | See *Stand it up from scratch* |
 | `stresser` | Stresser | OpenCode | `zai-org/GLM-5.3-Flash` | See *Stand it up from scratch* |
 
 ---
@@ -91,7 +91,10 @@ appear under `models`** (`./start-factory.sh` prints the model each seat will us
       "npm": "@ai-sdk/openai-compatible",
       "name": "Featherless AI",
       "options": { "baseURL": "https://api.featherless.ai/v1", "apiKey": "{env:FEATHERLESS_API_KEY}" },
-      "models": { "zai-org/GLM-5.3-Flash": {} }
+      "models": {
+        "zai-org/GLM-5.3-Flash": {},
+        "MiniMaxAI/MiniMax-M2.5": {}
+      }
     }
   }
 }
@@ -250,8 +253,8 @@ _(append-only log — add entries as they happen)_
 
 | Stage | Wall-clock start | Wall-clock end | Duration | Model spend |
 |---|---|---|---|---|
-| 1 | ~07:30 UTC | ~10:15 UTC | ~2h 45m | [See billing / room.json] |
-| 2 | In progress (draft-stage-2) | — | — | — |
+| 1 | 2026-10-05 09:15 UTC (dispatch) | 2026-10-05 10:00 UTC (final report) | ~44 min | unverified (Featherless dashboard) |
+| 2 | In progress (not committed) | — | — | — |
 | 3 | Not reached | — | — | — |
 | 4 | Not reached | — | — | — |
 
@@ -259,33 +262,37 @@ _(append-only log — add entries as they happen)_
 
 | Fact | Value |
 |---|---|
-| Human messages in the submitted room (= dispatches) | 1 (Initial Stage 1 dispatch; subsequent autonomous run) |
-| Total room messages | [Run `analyze_room.py room.json` after export] |
-| Seat restarts (`events.log`) | 1 (`events.log`: OpenCode server timeout / restart) |
-| Rejections by Inspector that changed the code | 1 (C1: 0-byte bodies 422->400, commit `5620886`) |
-| Defects found by Stresser after acceptance | 0 |
-| Highest stage accepted / harness result | Stage 1 accepted (147/147 pass isolated mode) |
-| Total model spend | [Sum from Featherless dashboard for run period] |
+| Human messages in the submitted room | **4** — initial dispatch (09:15 UTC); identical re-dispatch after timeout (09:34 UTC); one-word "continue" after ~1h55m stall (12:11 UTC); steering note to seats (12:18 UTC). See `docs/FACT_SHEET.md` §3 for message ids. |
+| Total room messages | **683** (parsed from `room.json`) |
+| Seat restarts (`events.log`) | 1 (`2026-10-05T12:39:09Z FATAL opencode server died`) |
+| OpenCode timeouts (Smith) | 3 (09:33, 10:16, 12:33 UTC — `error` type messages in room.json) |
+| Stall | ~1 h 55 m (10:16 UTC timeout to 12:11 UTC "continue") |
+| Defects found by Stresser that led to a fix | 1 (C1: 0-byte bodies 422 to 400, commit `5620886`) |
+| Defects self-found by Smith during fix verification | 1 (C2: cold-start missing indexes, same commit `5620886`) |
+| Inspector rejections that changed the code | **0** (Inspector accepted `ef1a437` before C1/C2 were discovered) |
+| Highest stage accepted / harness result | Stage 1 accepted (147/147 pass isolated mode, rev `5620886`) |
 
 ### Bad work the band caught (from the room; at least two, with revisions)
 
-1. **Incident 1 — 0-byte request bodies returned HTTP 422 instead of HTTP 400 (Revision `ef1a437` rejected):**
-   - **Defect:** `parse_json_object` treated an empty request body as an empty JSON dict `{}`. Endpoints with required fields (e.g. `POST /payments`, `POST /auth/login`, `POST /_test/reset`) therefore raised validation failures and returned `422 validation_failed` instead of `400 malformed_request` per API specification §5.
-   - **Evidence Produced:** Inspector repro curls on empty POST requests returning HTTP 422 with `validation_failed`.
-   - **Fixing Revision:** `5620886` (`fix(stage 1): 0-byte request bodies are 400 malformed_request; init store indexes`). Uniform guard checks for empty body before parsing JSON.
-   - **Turns / Resolution:** 1 rework cycle. Inspector re-verified and passed.
+1. **Incident 1 — 0-byte request bodies returned HTTP 422 instead of HTTP 400:**
+   - **Defect:** `parse_json_object` treated an empty request body as an empty JSON dict `{}`. Endpoints with required fields therefore raised validation failures and returned `422 validation_failed` instead of `400 malformed_request` per API specification §5.
+   - **Found by:** **Stresser** (room.json msg `76888d2f` at `09:51:47Z`): labelled as "1 unresolved concern (cosmetic, low severity)" after Inspector had already accepted `ef1a437`.
+   - **Escalated by:** Foreman (msg `582bedd8` at `09:52:12Z`): reclassified as DEFECT C1 and routed to Smith as a follow-up fix.
+   - **Fixing revision:** `5620886` (msg `d3b53a55` at `09:57:03Z`). Uniform guard checks for empty body before parsing JSON.
+   - **Inspector action on `ef1a437`:** ACCEPTED at `09:44:52Z` and `09:49:34Z` — before C1 was discovered. Inspector did NOT reject `ef1a437`.
+   - **Inspector action on `5620886`:** Delta-ACCEPTED at `09:59:41Z` and `10:02:19Z`.
+   - **Turns / Resolution:** 1 rework cycle triggered by Stresser, not Inspector.
 
-2. **Incident 2 — Container cold-start index failure before reset (Revision `ef1a437` rejected during verification):**
+2. **Incident 2 — Container cold-start index failure before first `POST /_test/reset` (self-found by Smith):**
    - **Defect:** Initial service state was instantiated without building derived indexes (user ID, handle, email, payment requests). Any call to `POST /auth/signup` or `POST /auth/login` on a fresh container prior to calling `POST /_test/reset` failed with a generic HTTP 400 error.
-   - **Evidence Produced:** Inspector fresh-container test (`signup before reset`) failed with HTTP 400.
-   - **Fixing Revision:** `5620886`. Store indexes are now explicitly initialized at startup.
-   - **Turns / Resolution:** Fixed in `5620886`, verified across fresh container startup checks (`signup` -> 201, `login` -> 200, `/me` -> 200 balance 0).
+   - **Found by:** **Smith** (self-found during C1 fix verification; room.json msg `d3b53a55` at `09:57:03Z`): "Bonus defect found & fixed while verifying C1."
+   - **Fixing revision:** `5620886`. Store indexes are now explicitly initialized at startup.
+   - **Inspector action:** Delta-verified the fix in `5620886` review (msgs `b054d56f`, `efd0a80a`). Inspector did not find this defect.
 
 **How to measure:**
-- **Start:** `cat ~/band-work/factory/logs/started_at`
-- **End:** last timestamp in `room.json` (the Foreman's final report message)
-- **Spend:** Featherless subscription page → Usage, filtered to the run dates,
-  summed across all four seats.
+- **Start:** First human dispatch message in `room.json`: `2026-10-05T09:15:48Z` (msg id `9cd51be9`).
+- **End:** Foreman's Stage 1 final report in `room.json`: `2026-10-05T10:00:00Z` (msg id `2c37bc65`).
+- **Spend:** Featherless subscription page -> Usage, filtered to the run dates, summed across all four seats. HUMAN-TODO: actual spend figure not captured.
 
 ---
 
