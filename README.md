@@ -1,47 +1,79 @@
-# Dark Factory — Factory Tooling
+# Pocketful Dark Factory
 
-This directory contains the **factory tooling** for the WeAreDevelopers × BAND
-"Dark Factory" hackathon entry (track: **pocketful**).
+**Track:** pocketful | **Event:** WeAreDevelopers × BAND "Dark Factory" hackathon
 
-The factory tooling is what you, the human operator, maintain. It starts and
-manages the Band seats. The seats produce all product code in `RESULT_REPO`.
+## What this is
 
-## Quick reference
+An autonomous four-seat software factory built on Band Desktop + OpenCode + Featherless AI.
+Given a single dispatch message, the factory plans, builds, reviews and adversarially tests
+each stage of the pocketful service — a wallet and peer-to-peer payments application —
+without any human steering after the initial dispatch.
 
-| Script | Purpose |
+## Stage Status Table
+
+| Stage | Name | Status | Checks | Notes |
+|---|---|---|---|---|
+| **Stage 1** | JSON API (Ledger, Transfers, Requests, Splits) | **SHIPPED** | **147/147 PASS** | Complete & isolated container verified |
+| **Stage 2** | Browser UI & Authorizations | **DRAFT** | In Progress | Preserved on branch `draft-stage-2` per hackathon rules |
+| **Stage 3** | Statements & Corrections | **NOT REACHED** | — | Not started |
+| **Stage 4** | Refunds & Batch Operations | **NOT REACHED** | — | Not started |
+
+*Note: Per hackathon submission rules, only completed stages ship on `main`. Stage 2 was in progress at cutoff and is preserved on branch `draft-stage-2`.*
+
+## Repository layout
+
+| Path | Purpose |
 |---|---|
-| `start-factory.sh` | Start `opencode serve` + all 4 seat processes |
-| `stop-factory.sh` | Kill only our own processes (PID file based) |
-| `bootstrap-repo.sh <path>` | Create a fresh result git repo (no stage content) |
-| `preflight.sh <repo>` | Fresh-clone → harness check → isolated harness run → assertions |
+| `stage-1/` | Stage 1 service (built by the band: `main.py`, `Dockerfile`, `RUN.md`) |
+| `FACTORY.md` | Full factory documentation (seats, setup, design, costs) |
+| `mandates/` | One mandate per seat: `foreman.md`, `smith.md`, `inspector.md`, `stresser.md` |
+| `factory/` | Tooling that runs the seats (start/stop, dispatch renderer, preflight, room analyzer) |
+| `band-room-export/` | Full Band room download (`room.json`) — collaboration evidence |
+| `task/` | Track task brief and dispatch templates |
+| `SUBMISSION_CHECKLIST.md` | Complete verification evidence and requirement matrix |
+| `submission-drafts/` | Submission text (`form.md`) and video presentation script (`video-script.md`) |
 
-| File/Dir | Purpose |
-|---|---|
-| `src/run_seat.py` | Python: launches one seat (mandate guard + auto-reject questions) |
-| `mandates/` | One `.md` per seat (generic; no track-specific vocabulary) |
-| `dispatch/` | Dispatch messages to paste to Foreman in Band Desktop |
-| `templates/` | FACTORY.md and README.md templates for the result repo |
-| `RUNBOOK.md` | Ordered runbook: smoke test → toy loop → final run → post-run |
-| `agent_config.yaml` | Band seat IDs and keys (never commit; in .gitignore) |
-| `.env` | FEATHERLESS_API_KEY and RESULT_REPO (never commit; chmod 600) |
+## Build and Run Stage 1
 
-## Setup (one-time)
+### Build the Docker container
 
 ```sh
-uv sync                          # install band-sdk[opencode] into .venv
-chmod +x *.sh
-cp .env.example .env             # then fill in your values
-chmod 600 .env
+docker build -t pocketful-s1 ./stage-1
 ```
 
-## Start a run
+### Run under hackathon constraints (isolated network, resource caps)
 
 ```sh
-export RESULT_REPO=/absolute/path/to/result
-./start-factory.sh
-# In Band Desktop: paste dispatch/pocketful-all-stages.md → Foreman
-# Wait for Foreman's final report, then:
-./stop-factory.sh
+docker run -d --rm --network none --cpus=2 --memory=2048m -p 8080:8080 --name pocketful-s1 pocketful-s1
 ```
 
-See `RUNBOOK.md` for the full ordered procedure.
+### Verify service
+
+```sh
+# Health check
+curl -s http://localhost:8080/health
+# Output: {"status":"ok"}
+
+# Reset with initial state (fixture)
+curl -s -X POST -H "Content-Type: application/json" -d '{"currency":"EUR","users":[]}' http://localhost:8080/_test/reset
+# Output: {"status":"ok"}
+```
+
+### Stop container
+
+```sh
+docker stop pocketful-s1
+```
+
+## Run the Test Harness
+
+```sh
+# From the repository root (with dark-factory-wearedevs/.venv activated):
+python -m harness check . --track pocketful
+python -m harness run --track pocketful --repo . --all --mode isolated
+```
+
+## Track
+
+**pocketful** — a wallet and payments service. Money only moves between existing wallets;
+balances always sum to the seeded total.

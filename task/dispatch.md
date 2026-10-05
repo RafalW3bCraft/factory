@@ -1,35 +1,36 @@
-You are the lead seat for our software factory. Build all four stages of the
-pocketful track sequentially, coordinating the other seats and keeping every
+You are the lead seat for our software factory. Build the stages of the
+pocketful track listed below, sequentially, coordinating the other seats and keeping every
 stage in its own complete, buildable folder.
 
 Workspace root: /home/sp3ct0r/band-work
 Working folder: /home/sp3ct0r/band-work/dark-factory-wearedevs
 Track: pocketful
-Result repository: /home/sp3ct0r/band-work/result
+Result repository: /home/sp3ct0r/band-work/result-final
 
 Your goal is to implement each stage fully, and only then move to the next stage.
 
 ## Stage instructions
 
-For stage 1, read the full spec at:
-/home/sp3ct0r/band-work/dark-factory-wearedevs/pocketful/spec/stage-1.md
-Implement it in:
-/home/sp3ct0r/band-work/result/stage-1/
+Work through the stages strictly in order. Do NOT create stage-K/ until stage
+K-1 is accepted by @Inspector and probed by @Stresser. Copy-forward means: copy
+the previous stage folder, do NOT copy any .git directory inside it (delete it
+if it exists), then extend the copy per the new stage's spec.
 
-When stage 1 is accepted by @Inspector and probed by @Stresser:
-- Copy /home/sp3ct0r/band-work/result/stage-1/ to
-  /home/sp3ct0r/band-work/result/stage-2/ (do NOT copy any .git directory
-  inside the stage folder — delete it if it exists)
-- Extend stage-2/ per the spec at:
-  /home/sp3ct0r/band-work/dark-factory-wearedevs/pocketful/spec/stage-2.md
+### Stage 1
+Read the full spec at: /home/sp3ct0r/band-work/dark-factory-wearedevs/pocketful/spec/stage-1.md
+Implement it in: /home/sp3ct0r/band-work/result-final/stage-1/
 
-Continue the same copy-forward-and-extend pattern for stage 3:
+### Stage 2
+Copy /home/sp3ct0r/band-work/result-final/stage-1/ to /home/sp3ct0r/band-work/result-final/stage-2/ and extend it per the spec at:
+/home/sp3ct0r/band-work/dark-factory-wearedevs/pocketful/spec/stage-2.md
+
+### Stage 3
+Copy /home/sp3ct0r/band-work/result-final/stage-2/ to /home/sp3ct0r/band-work/result-final/stage-3/ and extend it per the spec at:
 /home/sp3ct0r/band-work/dark-factory-wearedevs/pocketful/spec/stage-3.md
-→ /home/sp3ct0r/band-work/result/stage-3/
 
-And stage 4:
+### Stage 4
+Copy /home/sp3ct0r/band-work/result-final/stage-3/ to /home/sp3ct0r/band-work/result-final/stage-4/ and extend it per the spec at:
 /home/sp3ct0r/band-work/dark-factory-wearedevs/pocketful/spec/stage-4.md
-→ /home/sp3ct0r/band-work/result/stage-4/
 
 Each stage folder must contain exactly:
 - Dockerfile (builds and runs the complete service listening on port 8080 with no external deps at
@@ -38,8 +39,7 @@ Each stage folder must contain exactly:
 - Complete service source (any language; judges do not import it)
 
 Do NOT copy or paste any spec content into mandates.
-Do NOT commit anything outside /home/sp3ct0r/band-work/result.
-Do NOT create stage-3/ or stage-4/ until the earlier stage is accepted.
+Do NOT commit anything outside /home/sp3ct0r/band-work/result-final.
 
 ## Checks to run per stage
 
@@ -49,7 +49,7 @@ source /home/sp3ct0r/band-work/dark-factory-wearedevs/.venv/bin/activate
 
 # Replace N with the stage number being checked:
 python -m harness run --track pocketful \
-  --repo /home/sp3ct0r/band-work/result \
+  --repo /home/sp3ct0r/band-work/result-final \
   --stage N \
   --out /home/sp3ct0r/band-work/checks/s${N}-$(date +%Y%m%d-%H%M%S)
 ```
@@ -61,7 +61,7 @@ the `claimed stage:` line to judge completion.
 For the final check of each stage, use `--mode isolated`:
 ```sh
 python -m harness run --track pocketful \
-  --repo /home/sp3ct0r/band-work/result \
+  --repo /home/sp3ct0r/band-work/result-final \
   --stage N \
   --mode isolated \
   --out /home/sp3ct0r/band-work/checks/s${N}-isolated-$(date +%Y%m%d-%H%M%S)
@@ -74,7 +74,7 @@ must be bundled in the Docker image.
 ## Seat responsibilities
 
 @Smith: implement one scoped work item at a time. Commit all changes to
-/home/sp3ct0r/band-work/result using:
+/home/sp3ct0r/band-work/result-final using:
   git -c user.name="Smith" -c user.email="Smith@factory.invalid" commit
 
 @Inspector: independently run the supplied checks on the revision @Smith
@@ -93,6 +93,9 @@ the exact command and output. Do not edit product code.
 the next stage dispatch.
 
 ## Critical business logic invariants (must never be violated)
+
+These apply from the stage whose spec introduces the behaviour. If this list and
+a stage spec ever differ, the stage spec is authoritative.
 
 1. **Conservation of Money**:
    - Total money across all wallets must always strictly equal the total seeded by `POST /_test/reset`.

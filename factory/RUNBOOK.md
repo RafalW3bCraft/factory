@@ -1,6 +1,8 @@
 # Factory Runbook
 
-**Track:** pocketful | **Submission deadline:** Mon Oct 5 23:59 PDT
+**Track:** pocketful | **Submission deadline:** Mon Oct 5 23:59 PDT (= Tue Oct 6 02:59 EDT = Tue Oct 6 12:29 IST).
+The lablab page header also shows "Oct 5, 2:59 AM EDT"; the schedule and the event text say
+Oct 6 02:59 EDT. Confirm on the submission page and plan against the EARLIER reading if unsure.
 
 This runbook is the ordered list of exact actions to take. Execute each step
 and verify it before moving to the next. Do not run the factory without your
@@ -72,9 +74,31 @@ this smoke test. This is just connectivity validation.**
 
 Stop both seats (Ctrl-C) and the opencode server.
 
+### Phase 1b — Four-seat gate (do not skip; the smoke test above only uses two)
+
+All four seats call Featherless at once in the real run, so rate limits / concurrency
+caps only show up now.
+
+```sh
+cd /home/sp3ct0r/band-work/factory
+export RESULT_REPO=/home/sp3ct0r/band-work/scratch-result
+./start-factory.sh        # lints mandates, prints each seat's model, exits non-zero if a seat is down
+```
+
+In a scratch room, ask Foreman: `@Smith @Inspector @Stresser each reply to me once, then say done`.
+Pass = three replies, no HTTP 429 / timeout in `logs/*.log`. Then `./stop-factory.sh`.
+
+**Choose the Inspector's model now** (reviewer independence): list what your key can use with
+`curl -s https://api.featherless.ai/v1/models -H "Authorization: Bearer $FEATHERLESS_API_KEY" | python3 -m json.tool | grep '"id"'`,
+pick a different family from the builder, add it to `opencode.json`, and set `Model:` in
+`mandates/inspector.md`. `start-factory.sh` picks it up automatically.
+
 ---
 
-## Phase 2 — Full toy loop
+## Phase 2 — Toy loop (recommended: stage 1 only if time is short)
+
+Time-saver: `./render-dispatch.sh toy --stages 1` renders a stage-1-only dispatch. A stage-1 toy run exercises
+every moving part (room, handoffs, export, `harness check`, preflight) in a fraction of the time.
 
 Purpose: rehearse the complete pipeline on the toy track (unscored).
 
@@ -111,8 +135,8 @@ export RESULT_REPO=/home/sp3ct0r/band-work/toy-result
 ./start-factory.sh
 ```
 
-In Band Desktop, send Foreman the content of:
-`/home/sp3ct0r/band-work/factory/dispatch/toy-all-stages.md`
+In Band Desktop, send Foreman the output of:
+`./render-dispatch.sh toy` (or `--stages 1`)
 
 Wait for Foreman's final report. Stop the factory:
 
@@ -169,22 +193,8 @@ Do NOT reuse the toy room or any development room.
   /home/sp3ct0r/band-work/result-final
 ```
 
-Copy mandates and templates to the result repo:
-
-```sh
-cp /home/sp3ct0r/band-work/factory/templates/FACTORY.md \
-   /home/sp3ct0r/band-work/result-final/FACTORY.md
-cp /home/sp3ct0r/band-work/factory/templates/README.md \
-   /home/sp3ct0r/band-work/result-final/README.md
-git -C /home/sp3ct0r/band-work/result-final \
-    -c user.name="factory-bootstrap" \
-    -c user.email="factory-bootstrap@factory.invalid" \
-    add FACTORY.md README.md
-git -C /home/sp3ct0r/band-work/result-final \
-    -c user.name="factory-bootstrap" \
-    -c user.email="factory-bootstrap@factory.invalid" \
-    commit -m "chore: add FACTORY.md and README.md skeletons"
-```
+`bootstrap-repo.sh` already copied `mandates/` and the `FACTORY.md`/`README.md` skeletons and committed them.
+Nothing more to do here.
 
 ### 3c. Start the factory
 
@@ -196,8 +206,15 @@ export RESULT_REPO=/home/sp3ct0r/band-work/result-final
 
 ### 3d. Dispatch
 
-In Band Desktop (in the **new room**), send Foreman the complete content of:
-`/home/sp3ct0r/band-work/factory/dispatch/pocketful-all-stages.md`
+Start screen recording NOW (OBS; see PLAN.md for low-fps settings), then in Band Desktop (in the **new room**)
+send Foreman the complete output of:
+
+```sh
+./render-dispatch.sh pocketful          # add --stages 2 if time is short
+```
+
+The rendered message uses `$RESULT_REPO`, so the seats cannot build in a different directory
+than the one that gets submitted.
 
 This is the **only** human input for the entire run. Do not send any other
 message (no "looks good", no reruns, no hints) until Foreman posts the final
@@ -218,11 +235,14 @@ Watch `logs/foreman.log`, `logs/smith.log`, `logs/inspector.log`,
 
 ## Phase 4 — Post-run: verify, fill numbers, video
 
-### 4a. Run preflight
+### 4a. Package, then run the final preflight
+
+If the run was cut off mid-stage, delete the incomplete `stage-K/` first
+(`git rm -r stage-K`, commit as factory-bootstrap) and disclose it in FACTORY.md.
 
 ```sh
-/home/sp3ct0r/band-work/factory/preflight.sh \
-  /home/sp3ct0r/band-work/result-final
+./package-submission.sh /home/sp3ct0r/band-work/result-final   # tooling + mandates into the repo
+./preflight.sh /home/sp3ct0r/band-work/result-final --final
 ```
 
 Fix every issue reported. Repeat until it passes.
@@ -258,7 +278,14 @@ print('Last event:', max(ts) if ts else 'n/a')
 # Filter to the run dates, note the total.
 ```
 
-Edit `result-final/FACTORY.md` to fill in the Stage table.
+Get the numbers (human-message count, per-stage report times, rejections, commit authors):
+
+```sh
+python src/analyze_room.py /home/sp3ct0r/band-work/result-final/room.json --repo /home/sp3ct0r/band-work/result-final
+```
+
+Edit `result-final/FACTORY.md`: fill the Stage table, the run-facts table and the two "bad work caught"
+examples (`--final` preflight fails while any `TBD` remains).
 
 ### 4c. Download room.json
 

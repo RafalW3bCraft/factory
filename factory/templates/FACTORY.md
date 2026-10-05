@@ -45,57 +45,43 @@ them at any software project.
 
 ## Stand it up from scratch
 
+Everything needed is in this repository: the seats' standing instructions are in
+`mandates/`, the tooling that runs them is in `factory/`.
+
 ### Prerequisites
 
-- Linux (tested: Arch Linux, kernel 7.x)
+- Linux (tested: Arch Linux, kernel 7.x), `git`, `curl`
 - `uv` ≥ 0.12 (`curl -fsSL https://astral.sh/uv/install.sh | sh`)
 - `opencode` ≥ 1.18 (`curl -fsSL https://opencode.ai/install | bash`)
-- Docker daemon running and accessible to your user (`docker info` must work)
-- Python 3.12+ (handled automatically by `uv`)
-- A Band Desktop account with four seats registered:
-  **Foreman**, **Smith**, **Inspector**, **Stresser**
-- A Featherless AI API key
+- Docker daemon accessible to your user (`docker info` must work)
+- A BAND account + BAND Desktop, and a Featherless AI API key
+- The hackathon kickoff package (the harness and the track specs)
 
-### Step 1 — Clone the kickoff package
+### Step 1 — Get the kickoff package and this repository
 
 ```sh
-git clone <kickoff-repo> ~/band-work/dark-factory-wearedevs
+git clone <kickoff-repo-url> ~/band-work/dark-factory-wearedevs
+git clone <this-repo-url>    ~/band-work/submission
+cd ~/band-work/submission/factory
 ```
 
-### Step 2 — Clone this factory
+### Step 2 — Install dependencies
 
 ```sh
-git clone <this-repo> ~/band-work/factory-repo
-# or use the factory/ directory you already have
+uv sync          # installs band-sdk[opencode] into factory/.venv (Python 3.12)
+chmod +x *.sh
 ```
 
-### Step 3 — Install dependencies
+### Step 3 — Secrets (never commit these)
 
 ```sh
-cd ~/band-work/factory
-uv sync          # installs band-sdk[opencode] into .venv at Python 3.12
+cp .env.example .env && chmod 600 .env     # set FEATHERLESS_API_KEY and RESULT_REPO
 ```
 
-### Step 4 — Configure secrets
+### Step 4 — Configure OpenCode (outside any repo)
 
-Create `~/band-work/factory/.env`:
-
-```sh
-FEATHERLESS_API_KEY=<your-key>
-RESULT_REPO=/home/<you>/band-work/result
-```
-
-Secure it:
-
-```sh
-chmod 600 ~/band-work/factory/.env
-```
-
-**Never commit `.env` or `agent_config.yaml`.**
-
-### Step 5 — Configure opencode
-
-Write `~/.config/opencode/opencode.json` (not in the result repo):
+`~/.config/opencode/opencode.json`. **Every `Model:` line in `mandates/*.md` must
+appear under `models`** (`./start-factory.sh` prints the model each seat will use):
 
 ```json
 {
@@ -104,67 +90,59 @@ Write `~/.config/opencode/opencode.json` (not in the result repo):
     "featherless": {
       "npm": "@ai-sdk/openai-compatible",
       "name": "Featherless AI",
-      "options": {
-        "baseURL": "https://api.featherless.ai/v1",
-        "apiKey": "{env:FEATHERLESS_API_KEY}"
-      },
-      "models": {
-        "zai-org/GLM-5.3-Flash": {}
-      }
+      "options": { "baseURL": "https://api.featherless.ai/v1", "apiKey": "{env:FEATHERLESS_API_KEY}" },
+      "models": { "zai-org/GLM-5.3-Flash": {} }
     }
   }
 }
 ```
 
-### Step 6 — Register seats in Band Desktop
+### Step 5 — Register the four seats in BAND Desktop
 
-In Band Desktop, create four seats named exactly:
-**Foreman**, **Smith**, **Inspector**, **Stresser**.
-Set each to OpenCode harness with the `featherless` provider and
-`zai-org/GLM-5.3-Flash` model. The `agent_config.yaml` in `factory/` maps
-role keys to agent IDs — update it if you re-register seats.
+Create four external agents named exactly **Foreman**, **Smith**, **Inspector**,
+**Stresser**. Save each agent's id and API key into `factory/agent_config.yaml`
+under the lowercase role key (`foreman`, `smith`, `inspector`, `stresser`).
+Redacted example of the file as read by `band.config.load_agent_config`:
 
-### Step 7 — Bootstrap the result repository
-
-```sh
-cd ~/band-work/factory
-./bootstrap-repo.sh /home/<you>/band-work/result
+```yaml
+TBD: paste the output of  sed -E 's/(agent_id|api_key):.*/\1: REDACTED/' agent_config.yaml
 ```
 
-### Step 8 — Set Docker group (if needed)
-
-If `docker info` fails with permission denied:
-
-```sh
-sudo usermod -aG docker $USER
-# log out and back in, or: newgrp docker
-```
-
-### Step 9 — Run the harness venv
+### Step 6 — Harness environment
 
 ```sh
 cd ~/band-work/dark-factory-wearedevs
-python3.12 -m venv .venv
-. .venv/bin/activate
+python3.12 -m venv .venv && . .venv/bin/activate
 pip install -r harness/requirements.txt
-python -m playwright install chromium
+python -m playwright install --with-deps chromium
 ```
 
-### Step 10 — Start the factory
+If `docker info` says permission denied: `sudo usermod -aG docker $USER`, then `newgrp docker`.
+
+### Step 7 — Fresh result repository, then start the band
 
 ```sh
-cd ~/band-work/factory
-export RESULT_REPO=/home/<you>/band-work/result
-./start-factory.sh
+cd ~/band-work/submission/factory
+./bootstrap-repo.sh ~/band-work/result-final        # copies mandates/, templates; no stage content
+export RESULT_REPO=~/band-work/result-final
+./start-factory.sh        # lints mandates, starts opencode + 4 seats; exits non-zero if any seat is not up
 ```
 
-In a separate terminal, send the dispatch message to **Foreman** in Band Desktop
-(copy from `factory/dispatch/pocketful-all-stages.md`).
-
-### Stop the factory
+### Step 8 — Dispatch (the only human input)
 
 ```sh
-./stop-factory.sh
+./render-dispatch.sh pocketful      # prints (and copies) the dispatch with every path resolved
+```
+
+Create a **new** room in BAND Desktop, paste the dispatch to **Foreman**, then do
+nothing until Foreman's final report. `./stop-factory.sh` stops everything.
+
+### Step 9 — After the run
+
+```sh
+./package-submission.sh "$RESULT_REPO"            # copies tooling + mandates into the repo
+./preflight.sh "$RESULT_REPO" --final             # fresh clone, harness check, isolated run, secret scan
+python src/analyze_room.py "$RESULT_REPO/room.json" --repo "$RESULT_REPO"
 ```
 
 ---
@@ -204,6 +182,27 @@ directory. The `opencode serve` process is started from `factory/` so it
 reads `~/.config/opencode/opencode.json`, never any file in the result repo.
 This keeps credentials out of the result repo's git history.
 
+**Operator safeguards live outside the seats.**
+Seats stay generic; everything specific to *this* hackathon or machine is a
+script the operator runs, so the mandates remain portable:
+- `src/lint_mandates.py` fails the start if a mandate names endpoint paths, field
+  names, status codes, header names or track vocabulary.
+- `start-factory.sh` resolves each seat's model from its own mandate, refuses to
+  declare the band up unless all seats survive ~15 s, and restarts a crashed seat
+  (bounded, logged to `factory/run-evidence/events.log`). It sends nothing to the room.
+- `render-dispatch.sh` is the single source of truth for paths, so the dispatch
+  cannot point at a different repo than the one the seats commit to.
+- `preflight.sh --final` fresh-clones the repo and runs the harness in isolated
+  mode, and fails on leftover placeholders, symlinks, missing stage files, an
+  unparsable `room.json`, a non-public remote, and any real secret value
+  (from `.env` / `agent_config.yaml`) in the tree or in git history.
+
+**Requirement IDs tie review to the spec.**
+Foreman numbers every testable requirement (REQ-n) and cites the IDs in every
+handoff; Inspector's verdict lists each ID as verified / not verifiable / failed
+with evidence. Acceptance is therefore a statement about the spec, not about
+the builder's own checks.
+
 ---
 
 ## What we tried that failed
@@ -218,6 +217,22 @@ _(append-only log — add entries as they happen)_
   Resolution: Configured OpenCode provider in `~/.config/opencode/opencode.json` with
   `apiKey: "{env:FEATHERLESS_API_KEY}"`; verified models are visible and reachable.
 
+- **2026-10-05 (pre-run audit of the tooling):** five defects found before the
+  graded run; each now has a fix in this repository.
+  1. The dispatch hard-coded one result-repo path while the final run used another,
+     so the seats would have built outside the repo that gets submitted →
+     templated dispatch + `render-dispatch.sh`.
+  2. `start-factory.sh` forced a single model onto all seats although its header
+     promised per-seat models, which made a different-model reviewer impossible →
+     models are read from each mandate.
+  3. Each mandate contained an author-facing rule ("do not name X in this
+     mandate") inside the agent's own prompt, which can be misread as "never write
+     endpoint paths in a handoff" → removed, enforced by the linter instead.
+  4. The submission repo contained mandates but none of the tooling this file tells
+     a judge to run → `package-submission.sh`.
+  5. The result repo's `.gitignore` excluded `dist/` and `build/`, which can make a
+     service build locally and fail from a fresh clone → no longer ignored.
+
 ---
 
 ## Measured time and model spend per stage
@@ -228,6 +243,23 @@ _(append-only log — add entries as they happen)_
 | 2 | TBD | TBD | TBD | TBD |
 | 3 | TBD | TBD | TBD | TBD |
 | 4 | TBD | TBD | TBD | TBD |
+
+### Run facts (fill from `analyze_room.py` and `factory/run-evidence/`)
+
+| Fact | Value |
+|---|---|
+| Human messages in the submitted room (= dispatches) | TBD |
+| Total room messages | TBD |
+| Seat restarts (`events.log`) | TBD |
+| Rejections by Inspector that changed the code | TBD |
+| Defects found by Stresser after acceptance | TBD |
+| Highest stage accepted / harness result | TBD |
+| Total model spend | TBD |
+
+### Bad work the band caught (from the room; at least two, with revisions)
+
+TBD: for each — what was wrong, the exact evidence Inspector/Stresser produced,
+the rejected and the fixing revision hash, and how many turns it took.
 
 **How to measure:**
 - **Start:** `cat ~/band-work/factory/logs/started_at`
@@ -270,8 +302,9 @@ _(append-only log — add entries as they happen)_
 
 - **GLM-5.3-Flash context window.** On long specs the model may truncate.
   Foreman's mandate instructs it to split handoffs into numbered parts.
-- **Single model, single provider.** All four seats use the same model and
-  provider. A Featherless outage halts the factory. Mitigation: the
+- **Single model, single provider (unless the mandates say otherwise).** Seats
+  that share a model share blind spots; a reviewer on a different model family is
+  the stronger design. Check `factory/run-evidence/seat_models.txt` for what ran. A Featherless outage halts the factory. Mitigation: the
   `opencode.json` can list fallback models; mandate the `model_id` change
   if switching.
 - **No Docker Sandbox.** OpenCode seats run on the host and hold broad
@@ -283,3 +316,9 @@ _(append-only log — add entries as they happen)_
 - **`harness run --mode isolated` requires Docker daemon access.**
   If Docker permission is denied, add the user to the `docker` group and
   open a new shell (`newgrp docker`).
+- **Secrets can leak into the public room export.** Seats run on the host with
+  auto-approved tools and their tool calls are exported. Mitigations: mandates
+  forbid printing credentials/environment; `preflight.sh --final` scans the repo
+  and history for the real key values; rotate keys after the run.
+- **Concurrency limits.** Four seats call the provider at once; rate limits (HTTP
+  429) are a failure mode the watchdog does not hide. Check `logs/*.log` after a run.

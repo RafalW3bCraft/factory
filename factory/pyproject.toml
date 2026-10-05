@@ -1,7 +1,7 @@
 [project]
 name = "factory"
 version = "0.1.0"
-description = "Add your description here"
+description = "Dark Factory tooling: starts and supervises a band of coding-agent seats on BAND via OpenCode."
 readme = "README.md"
 authors = [
     { name = "RafalW3bCraft", email = "thewhitefalcon13@proton.me" }

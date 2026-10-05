@@ -44,11 +44,14 @@ kill_pid_file() {
     fi
 }
 
+# Stop the supervisor (start-factory.sh) FIRST: its watchdog would otherwise
+# restart seats we kill. Its exit trap stops its own children.
+kill_pid_file "factory"
+# Then mop up anything that survived (e.g. supervisor was SIGKILLed).
 for seat in "${SEATS[@]}"; do
     kill_pid_file "$seat"
 done
 kill_pid_file "opencode"
-kill_pid_file "factory"
 
 # Check if port 4096 is still bound by an orphaned opencode server
 if command -v ss >/dev/null 2>&1; then

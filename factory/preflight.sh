@@ -2,7 +2,10 @@
 # preflight.sh — validate a result repository before submission.
 #
 # Usage:
-#   ./preflight.sh <repo-path>
+#   ./preflight.sh <repo-path-or-url> [--final]
+#
+#   --final  submission gate: missing stages / room.json / placeholders / non-public
+#            remote become FAILURES instead of warnings.
 #
 # What it does:
 #   1. Fresh-clones <repo-path> (if it is a local path) into a temp dir,
@@ -44,15 +47,25 @@ FAILED=0
 
 # ── args ─────────────────────────────────────────────────────────────────────
 
-if [[ $# -ne 1 || "$1" == "-h" || "$1" == "--help" ]]; then
-    echo "Usage: preflight.sh <repo-path-or-url>"
+FINAL=0; REPO_ARG=""
+for a in "$@"; do
+    case "$a" in
+        --final) FINAL=1 ;;
+        -h|--help) REPO_ARG=""; break ;;
+        *) REPO_ARG="$a" ;;
+    esac
+done
+if [[ -z "$REPO_ARG" ]]; then
+    echo "Usage: preflight.sh <repo-path-or-url> [--final]"
     echo ""
     echo "Validates the result repository before submission."
     echo "Pass either a local absolute path or a https://github.com/... URL."
+    echo "--final turns warnings about missing stages, room.json, placeholders and a"
+    echo "non-public remote into failures."
     exit 0
 fi
-
-REPO_ARG="$1"
+# strict(): failure in --final mode, warning otherwise
+strict() { if [[ $FINAL -eq 1 ]]; then die "$*"; else warn "$*"; fi; }
 TMPDIR_BASE="$(mktemp -d)"
 CLONE_DIR="$TMPDIR_BASE/clone"
 
@@ -64,6 +77,7 @@ trap cleanup EXIT
 echo "[preflight] Cloning repository …"
 if [[ "$REPO_ARG" == http* || "$REPO_ARG" == git@* ]]; then
     git clone --depth=1 "$REPO_ARG" "$CLONE_DIR"
+    REMOTE_URL="$REPO_ARG"
 else
     # Local path: fresh clone proves nothing is gitignored/untracked
     [[ -d "$REPO_ARG/.git" ]] || { echo "ERROR: $REPO_ARG is not a git repository." >&2; exit 1; }
@@ -152,7 +166,7 @@ done
 if [[ -f "$CLONE_DIR/room.json" ]]; then
     info "room.json present."
 else
-    warn "room.json not found — must be added before final submission."
+    strict "room.json not found — must be added before final submission."
 fi
 
 # 6. No credential-looking strings (harness check covers this, but extra grep)
@@ -177,6 +191,89 @@ if [[ -d "$MANDATE_DIR" ]]; then
     done
 else
     die "mandates/ directory missing from clone."
+fi
+
+# 8. Mandates are generic (track-specific detail = disqualification)
+if [[ -f "$SCRIPT_DIR/src/lint_mandates.py" && -d "$MANDATE_DIR" ]]; then
+    if python3 "$SCRIPT_DIR/src/lint_mandates.py" "$MANDATE_DIR"; then
+        info "mandate lint clean."
+    else
+        die "mandates name track-specific detail (see above)."
+    fi
+fi
+
+# 9. Mandates in the repo are the ones the factory actually ran
+LIVE_MANDATES="$SCRIPT_DIR/mandates"; [[ -d "$LIVE_MANDATES" ]] || LIVE_MANDATES="$SCRIPT_DIR/../mandates"
+if [[ -d "$LIVE_MANDATES" && -d "$MANDATE_DIR" ]]; then
+    if diff -rq "$LIVE_MANDATES" "$MANDATE_DIR" >/dev/null 2>&1; then
+        info "repo mandates are identical to the factory's live mandates."
+    else
+        die "repo mandates differ from $LIVE_MANDATES (stale copy? re-run package-submission.sh)."
+    fi
+fi
+
+# 10. No leftover placeholders in the human-facing docs
+for doc in FACTORY.md README.md; do
+    if [[ -f "$CLONE_DIR/$doc" ]]; then
+        if grep -nE 'TBD|TODO|FIXME|<!--|<kickoff-repo>|<this-repo>|add team name' "$CLONE_DIR/$doc"; then
+            strict "$doc still has placeholders (above)."
+        else
+            info "$doc has no placeholders."
+        fi
+    else
+        strict "$doc missing."
+    fi
+done
+
+# 11. Literal secret values (from .env / agent_config.yaml / opencode.json) must not appear
+#     anywhere in the repo or its history. The room export is the likely leak path.
+SECRETS="$TMPDIR_BASE/secrets.txt"; : > "$SECRETS"
+for f in "$SCRIPT_DIR/.env" "$SCRIPT_DIR/agent_config.yaml" "$HOME/.config/opencode/opencode.json"; do
+    [[ -f "$f" ]] || continue
+    grep -iE '(key|token|secret|password)' "$f" 2>/dev/null \
+      | sed -E "s/^[^:=]*[:=][[:space:]]*//; s/^[\"']//; s/[\"',]*[[:space:]]*\$//" \
+      | awk 'length($0) >= 16 && $0 !~ /\{env:/' >> "$SECRETS" || true
+done
+sort -u -o "$SECRETS" "$SECRETS"
+if [[ -s "$SECRETS" ]]; then
+    HITS="$(grep -rIlF -f "$SECRETS" "$CLONE_DIR" --exclude-dir=.git 2>/dev/null || true)"
+    if [[ -n "$HITS" ]]; then
+        die "a real secret value appears in the working tree (values not shown). Files:"$'\n'"$HITS"
+    elif [[ "$(git -C "$CLONE_DIR" log --all -p 2>/dev/null | grep -cF -f "$SECRETS" || true)" -gt 0 ]]; then
+        # grep -c (not -q): -q exits early, git gets SIGPIPE and pipefail reports "not found".
+        die "a real secret value appears in git history (values not shown). Rotate it and rewrite history."
+    else
+        info "no live secret values in tree or history ($(wc -l < "$SECRETS") checked)."
+    fi
+else
+    warn "no secret values found in .env/agent_config.yaml to scan for (is this run from the factory dir?)."
+fi
+
+# 12. Final-mode structure: contiguous stages from 1, parsable room.json, public remote
+STAGES_FOUND="$(cd "$CLONE_DIR" && ls -d stage-[0-9]* 2>/dev/null | sed 's/stage-//' | sort -n | tr '\n' ' ' || true)"
+if [[ -n "$STAGES_FOUND" ]]; then
+    exp=1; gap=0
+    for n in $STAGES_FOUND; do [[ "$n" == "$exp" ]] || gap=1; exp=$((exp+1)); done
+    [[ $gap -eq 0 ]] && info "stages present: $STAGES_FOUND" || die "stage folders are not contiguous from 1: $STAGES_FOUND"
+else
+    strict "stage-1/ is the minimum for eligibility."
+fi
+if [[ -f "$CLONE_DIR/room.json" ]]; then
+    python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$CLONE_DIR/room.json" 2>/dev/null \
+        && info "room.json parses as JSON ($(du -h "$CLONE_DIR/room.json" | cut -f1))." \
+        || die "room.json is not valid JSON."
+fi
+if [[ -n "${REMOTE_URL:-}" ]]; then
+    WEB="$(echo "$REMOTE_URL" | sed -E 's#^git@github.com:#https://github.com/#; s#\.git$##')"
+    CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$WEB" 2>/dev/null || echo 000)"
+    case "$CODE" in
+        200) info "remote is publicly reachable without login: $WEB" ;;
+        000) warn "could not reach $WEB to confirm the repo is public (offline?)." ;;
+        404) strict "remote returned 404 without login — repo is private or misspelled: $WEB" ;;
+        *)   warn "could not confirm the repo is public (HTTP $CODE): $WEB — open it in a private window." ;;
+    esac
+else
+    strict "no origin remote configured (judges need a public GitHub repo)."
 fi
 
 # ── harness run --all --mode isolated ────────────────────────────────────────
@@ -209,7 +306,7 @@ if [[ $HAS_STAGES -eq 1 ]]; then
         die "harness run returned non-zero. Report: $OUT_DIR/report.json"
     fi
 else
-    warn "No stage-* folders found in repository. Skipping harness run (run this again after your band implements stage-1)."
+    strict "No stage-* folders found in repository. Skipping harness run (run this again after your band implements stage-1)."
 fi
 
 # ── summary ──────────────────────────────────────────────────────────────────

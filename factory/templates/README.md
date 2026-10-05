@@ -16,6 +16,7 @@ after the initial dispatch.
 |---|---|
 | `FACTORY.md` | Full factory documentation (seats, setup, design, costs) |
 | `mandates/` | One mandate per seat: `foreman.md`, `smith.md`, `inspector.md`, `stresser.md` |
+| `factory/` | The tooling that runs the seats (start/stop, dispatch renderer, preflight, room analyzer) |
 | `room.json` | Full Band room download — the collaboration evidence |
 | `stage-1/` | Stage 1 service (built by the band) |
 | `stage-2/` | Stage 2 service (built by the band) |

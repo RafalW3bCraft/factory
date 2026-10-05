@@ -41,9 +41,10 @@ echo "[bootstrap] Creating repo at $TARGET …"
 mkdir -p "$TARGET/mandates"
 git -C "$TARGET" init -b main
 
-# Copy mandates
-if [[ -d "$FACTORY_ROOT/mandates" ]] && compgen -G "$FACTORY_ROOT/mandates/*.md" > /dev/null 2>&1; then
-    cp "$FACTORY_ROOT/mandates/"*.md "$TARGET/mandates/"
+# Copy mandates (./mandates, or ../mandates when this tooling is packaged as <repo>/factory/)
+MANDATES_SRC="$FACTORY_ROOT/mandates"; [[ -d "$MANDATES_SRC" ]] || MANDATES_SRC="$FACTORY_ROOT/../mandates"
+if [[ -d "$MANDATES_SRC" ]] && compgen -G "$MANDATES_SRC/*.md" > /dev/null 2>&1; then
+    cp "$MANDATES_SRC/"*.md "$TARGET/mandates/"
     echo "[bootstrap] Mandates copied."
 else
     echo "[bootstrap] WARNING: no mandate files found in $FACTORY_ROOT/mandates/ — copy them manually."
@@ -64,9 +65,14 @@ __pycache__/
 *.egg-info/
 
 # Node / JS
+# NOTE: dist/ and build/ are deliberately NOT ignored. A stage whose Dockerfile
+# copies a committed build output would otherwise build on the builder's machine
+# but fail from a fresh clone (= a service that does not start = score zero).
 node_modules/
-dist/
-build/
+
+# Factory run logs (events.log/seat_models.txt are copied explicitly by
+# package-submission.sh)
+factory/logs/
 
 # OS
 .DS_Store

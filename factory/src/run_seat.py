@@ -3,10 +3,14 @@
 run_seat.py — start one Band seat via the OpenCode adapter.
 
 Usage:
-    uv run python src/run_seat.py <seat> <model_id>
+    uv run python src/run_seat.py <seat> [model_id]
+    uv run python src/run_seat.py --model-of <seat>      # print the mandate's model id
 
     seat      : key in agent_config.yaml  (foreman | smith | inspector | stresser)
-    model_id  : exact Featherless model id, e.g. zai-org/GLM-5.3-Flash
+    model_id  : optional; exact Featherless model id. If omitted, the mandate's
+                "Model:" line is used. If given, it must equal the mandate's.
+
+Env: TURN_TIMEOUT_S (default 900) = per-turn timeout passed to the adapter.
 
 The script:
   - Loads .env and agent_config.yaml from the directory that contains this file's
@@ -43,8 +47,18 @@ def usage() -> None:
 # ---------------------------------------------------------------------------
 # Mandate validation
 # ---------------------------------------------------------------------------
+def mandates_dir() -> Path:
+    """<root>/mandates, else <root>/../mandates (when this tooling is packaged as
+    <repo>/factory/ next to <repo>/mandates/)."""
+    for cand in (FACTORY_ROOT / "mandates", FACTORY_ROOT.parent / "mandates"):
+        if cand.is_dir():
+            return cand
+    die(f"No mandates/ directory found next to {FACTORY_ROOT}")
+    raise AssertionError  # unreachable
+
+
 def read_mandate(seat: str) -> str:
-    mandate_path = FACTORY_ROOT / "mandates" / f"{seat}.md"
+    mandate_path = mandates_dir() / f"{seat}.md"
     if not mandate_path.exists():
         die(f"Mandate not found: {mandate_path}")
     return mandate_path.read_text(encoding="utf-8")
@@ -64,7 +78,7 @@ def extract_mandate_model(text: str) -> str | None:
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
-async def run(seat: str, model_id: str) -> None:
+async def run(seat: str, model_id: str | None) -> None:
     from dotenv import load_dotenv
 
     # Load .env from factory root (never from result repo)
@@ -87,6 +101,8 @@ async def run(seat: str, model_id: str) -> None:
     mandate_model = extract_mandate_model(mandate_text)
     if mandate_model is None:
         die(f"Mandate {seat}.md has no 'Model:' line. Add 'Model: {model_id}' near the top.")
+    if model_id is None:
+        model_id = mandate_model
     if mandate_model != model_id:
         die(
             f"Model mismatch for seat '{seat}':\n"
@@ -116,7 +132,7 @@ async def run(seat: str, model_id: str) -> None:
         approval_mode="auto_accept",
         # Never wait for a human to answer a question – auto-reject keeps the run dark.
         question_mode="auto_reject",
-        turn_timeout_s=900,
+        turn_timeout_s=int(os.environ.get("TURN_TIMEOUT_S", "900")),
         session_title_prefix=seat,
     )
 
@@ -131,18 +147,31 @@ async def run(seat: str, model_id: str) -> None:
 
 
 def main() -> None:
-    if len(sys.argv) < 2 or sys.argv[1] in ("-h", "--help"):
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
         usage()
-    if len(sys.argv) != 3:
-        print("Usage: run_seat.py <seat> <model_id>", file=sys.stderr)
+    if args[0] == "--model-of":
+        if len(args) != 2:
+            die("Usage: run_seat.py --model-of <seat>")
+        model = extract_mandate_model(read_mandate(args[1]))
+        if model is None:
+            die(f"Mandate {args[1]}.md has no 'Model:' line.")
+        print(model)
+        return
+    if len(args) not in (1, 2):
+        print("Usage: run_seat.py <seat> [model_id]", file=sys.stderr)
         sys.exit(1)
-    seat, model_id = sys.argv[1], sys.argv[2]
+    seat = args[0]
+    model_id = args[1] if len(args) == 2 else None
     try:
         asyncio.run(run(seat, model_id))
     except KeyboardInterrupt:
         print(f"\n[run_seat] Seat '{seat}' stopped cleanly (SIGINT).")
         sys.exit(0)
-    except Exception as exc:
+    except Exception as exc:  # SystemExit from die() is not an Exception subclass
+        import traceback
+
+        traceback.print_exc()
         die(f"Seat '{seat}' encountered unhandled error: {exc}")
 
 
