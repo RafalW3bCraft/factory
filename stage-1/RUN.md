@@ -5,10 +5,28 @@ in-memory state. Listens on `0.0.0.0` using the `PORT` environment variable
 (default `8080`). No runtime dependencies beyond the base image; no outbound
 network access is needed at runtime.
 
-## Build
+## Run directly (no Docker)
+
+From the repository root:
 
 ```sh
-docker build -t pocketful-s1 /home/sp3ct0r/band-work/result-final/stage-1
+python3 stage-1/main.py
+```
+
+In another terminal, verify the health endpoint:
+
+```sh
+curl -i http://127.0.0.1:8080/health
+```
+
+Stop the process with `Ctrl-C`. Set `PORT` to listen on another port.
+
+## Build
+
+Run this from the repository root:
+
+```sh
+docker build -t pocketful-s1 ./stage-1
 ```
 
 ## Run
@@ -26,8 +44,13 @@ docker run -d --rm -e PORT=9000 -p 8080:9000 --name pocketful-s1 pocketful-s1
 ## Verify
 
 ```sh
-curl -s http://localhost:8080/health
-# expect: {"status":"ok"}
+curl -i http://127.0.0.1:8080/health
+# expect HTTP 200 and {"status":"ok"}
+
+curl -i -X POST http://127.0.0.1:8080/_test/reset \
+  -H 'Content-Type: application/json' \
+  -d '{"currency":"EUR","minor_units":2,"users":[]}'
+# expect HTTP 204 No Content (an empty response body)
 ```
 
 ## Stop
@@ -44,3 +67,5 @@ docker stop pocketful-s1
   (see the stage 1 specification, §3.3 and §4). It does not survive a
   container restart, which is expected.
 - All responses are `application/json; charset=utf-8`.
+- The official event harness is external to this repository. Its check/run
+  commands require that kickoff package and, for isolated runs, Docker.

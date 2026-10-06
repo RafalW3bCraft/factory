@@ -1,25 +1,30 @@
-# Band room recording checklist
+# BAND Room Footage Checklist
 
-## Required capture
-- Real room: `48bd09b2-3c1e-426c-9beb-29d79b6f8d91`
-- Required content: real Band Desktop room, clearly showing the dispatch and review flow.
-- Do not simulate or mock the room; the final deliverable must contain actual human-recorded footage.
+## Supplied real footage
 
-## Suggested timeline
-- 09:15:48Z — initial dispatch from Metal
-- 09:33:22Z — first timeout
-- 09:40:41Z — first official harness pass
-- 09:41:25Z — Foreman review order
-- 09:51:47Z — Stresser concern
-- 09:57:03Z — Smith fix commit `5620886`
-- 09:59:41Z — Inspector delta-accept
-- 10:00:00Z — final report
+The supplied captures include real BAND room screens. The presentation uses
+cropped excerpts of the review and hardening flow; it does not simulate or
+recreate the chat.
 
-## What to highlight
-- The single dispatch and the room’s iterative review cycle.
-- The fact that Stage 1 is shipped and Stage 2 remains draft-only.
-- The room’s honest mention of timeouts and the human follow-up.
-- The review flow from Stresser concern to Smith fix to Inspector delta-accept.
+## Events represented
 
-## Output requirement
-Do not assemble or publish the final `.mp4` until this checklist has been completed in a real recording session.
+- Inspector review request and acceptance.
+- Foreman's hardening order to Stresser.
+- Stresser's concern, Smith's follow-up fix, and Inspector's later delta acceptance.
+
+## Privacy checks
+
+- Crop out account/browser chrome, email or account identifiers, and terminal
+  panes.
+- Cover local workstation paths with opaque masks; do not use a translucent
+  blur that leaves text readable.
+- Mute source audio so spoken or notification content cannot leak.
+- Rotate any credential that was actually exposed; redaction does not revoke it.
+
+## Accuracy checks
+
+- Describe the run as four human messages, three OpenCode timeouts, and an
+  approximately 1h55m stall.
+- Do not say Inspector rejected the first revision or found the cold-start
+  defect. Stresser raised C1 after Inspector accepted the first revision;
+  Smith self-found C2; Inspector accepted the revised delta.

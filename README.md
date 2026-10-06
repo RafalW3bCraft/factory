@@ -1,87 +1,94 @@
 # Pocketful Dark Factory
 
-**Track:** pocketful | **Event:** WeAreDevelopers × BAND "Dark Factory" hackathon
+**Track:** pocketful · **Event:** WeAreDevelopers × BAND Dark Factory
 
-## What this is
+Pocketful is a wallet and peer-to-peer payments service built by a four-seat
+software factory. The factory uses Foreman, Smith, Inspector, and Stresser to
+plan, implement, independently verify, and adversarially test work.
 
-An autonomous four-seat software factory built on Band Desktop + OpenCode + Featherless AI.
-Given a dispatch message, the factory plans, builds, independently reviews, and adversarially
-tests each stage of the pocketful service — a wallet and peer-to-peer payments application.
+## Project status
 
-**Autonomy:** The room log (`band-room-export/room.json`) contains **4 human messages**:
-the initial dispatch (09:15 UTC), one identical re-dispatch after a timeout (09:34 UTC),
-one "continue" nudge after a ~1 h 55 m stall (12:11 UTC), and one steering note to
-Stresser/Inspector/Smith (12:18 UTC). The factory was autonomous within stages;
-three extra human messages were required to recover from OpenCode timeouts and a stall.
+| Stage | Scope | Status | Evidence |
+|---|---|---|---|
+| 1 | Ledger, transfers, requests, splits | Shipped | 147/147 official harness checks passed |
+| 2 | Browser UI and authorizations | Not included in `main` | Work was in progress and uncommitted at export |
+| 3 | Statements and corrections | Not reached | Not started |
+| 4 | Refunds and batch operations | Not reached | Not started |
 
-## Stage Status Table
+The room log records **four human messages**, not one: the original dispatch,
+a duplicate dispatch after a timeout, a “continue” message after a long stall,
+and a later steering note. The run also had three OpenCode timeouts. These
+limits are disclosed rather than described as fully autonomous. See
+[`docs/FACT_SHEET.md`](docs/FACT_SHEET.md) for the evidence-backed timeline.
 
-| Stage | Name | Status | Checks | Notes |
-|---|---|---|---|---|
-| **Stage 1** | JSON API (Ledger, Transfers, Requests, Splits) | **SHIPPED** | **147/147 PASS** | Complete & isolated container verified |
-| **Stage 2** | Browser UI & Authorizations | **DRAFT** | In Progress | Preserved on branch `draft-stage-2` per hackathon rules |
-| **Stage 3** | Statements & Corrections | **NOT REACHED** | — | Not started |
-| **Stage 4** | Refunds & Batch Operations | **NOT REACHED** | — | Not started |
+## Run Stage 1
 
-*Note: Per hackathon submission rules, only completed stages ship on `main`. Stage 2 was in progress at cutoff and is preserved on branch `draft-stage-2`.*
+The API uses only the Python 3 standard library. From the repository root:
 
-## Repository layout
+```sh
+python3 stage-1/main.py
+```
 
-| Path | Purpose |
-|---|---|
-| `stage-1/` | Stage 1 service (built by the band: `main.py`, `Dockerfile`, `RUN.md`) |
-| `FACTORY.md` | Full factory documentation (seats, setup, design, costs) |
-| `mandates/` | One mandate per seat: `foreman.md`, `smith.md`, `inspector.md`, `stresser.md` |
-| `factory/` | Tooling that runs the seats (start/stop, dispatch renderer, preflight, room analyzer) |
-| `band-room-export/` | Full Band room download (`room.json`) — collaboration evidence |
-| `task/` | Track task brief and dispatch templates |
-| `SUBMISSION_CHECKLIST.md` | Complete verification evidence and requirement matrix |
-| `submission-drafts/` | Submission text (`form.md`) and video presentation script (HUMAN-TODO: `video-script.md` not yet written) |
+It listens on `0.0.0.0:8080` by default. In another terminal, check health:
 
-## Build and Run Stage 1
+```sh
+curl -i http://127.0.0.1:8080/health
+```
 
-### Build the Docker container
+Reset the in-memory service state with a fixture:
+
+```sh
+curl -i -X POST http://127.0.0.1:8080/_test/reset \
+  -H 'Content-Type: application/json' \
+  -d '{"currency":"EUR","minor_units":2,"users":[]}'
+```
+
+A successful reset returns **204 No Content**. The state is in memory and is
+cleared when the process stops. To use another port, set `PORT` before start,
+for example `PORT=9000 python3 stage-1/main.py`.
+
+### Docker
+
+Docker is optional for a local smoke test. To build and run the isolated image:
 
 ```sh
 docker build -t pocketful-s1 ./stage-1
+docker run --rm --network none --cpus=2 --memory=2048m \
+  -p 8080:8080 --name pocketful-s1 pocketful-s1
 ```
 
-### Run under hackathon constraints (isolated network, resource caps)
+The `--network none` option is appropriate for the containerized test run; omit
+it if you need to reach the container from a different network namespace.
+Stop a detached container with `docker stop pocketful-s1`.
+
+## Test harness
+
+The WeAreDevelopers/BAND kickoff harness is not bundled in this repository.
+Install it from the event's kickoff package, then run these commands from its
+environment:
 
 ```sh
-docker run -d --rm --network none --cpus=2 --memory=2048m -p 8080:8080 --name pocketful-s1 pocketful-s1
-```
-
-### Verify service
-
-```sh
-# Health check
-curl -s http://localhost:8080/health
-# Output: {"status":"ok"}
-
-# Reset with initial state (a valid fixture with at least one user field)
-# Note: POST /_test/reset returns 204 No Content on success (no body).
-# An empty-body or missing-currency request returns 400 malformed_request.
-curl -s -o /dev/null -w "%{http_code}" -X POST -H "Content-Type: application/json" \
-  -d '{"currency":"EUR","minor_units":2,"users":[]}' http://localhost:8080/_test/reset
-# Output: 204
-```
-
-### Stop container
-
-```sh
-docker stop pocketful-s1
-```
-
-## Run the Test Harness
-
-```sh
-# From the repository root (with dark-factory-wearedevs/.venv activated):
 python -m harness check . --track pocketful
 python -m harness run --track pocketful --repo . --all --mode isolated
 ```
 
-## Track
+The isolated run requires a working Docker daemon. The 147/147 result in this
+README is the recorded submission evidence; it is not a claim that the
+external harness is installed in every checkout.
 
-**pocketful** — a wallet and payments service. Money only moves between existing wallets;
-balances always sum to the seeded total.
+## Repository map
+
+| Path | Purpose |
+|---|---|
+| `stage-1/` | Shipped API, Dockerfile, and run instructions |
+| `FACTORY.md` | Factory design, setup, measured results, and limitations |
+| `mandates/` | Operating instructions for the four seats |
+| `factory/factory/` | Source copy of the factory scripts and runbook |
+| `room.json` | Full room export used as collaboration evidence |
+| `docs/FACT_SHEET.md` | Audited source of truth for submission claims |
+| `submission-assets/` | Form copy, slides, video, scripts, and audit material |
+
+For the Stage 1-specific commands and API behavior, see
+[`stage-1/RUN.md`](stage-1/RUN.md). For running the multi-agent factory, start
+with [`factory/factory/README.md`](factory/factory/README.md); that workflow
+requires separately configured BAND, OpenCode, Featherless, and harness tools.

@@ -1,25 +1,19 @@
-# Video script
+# Pocketful Factory — Presentation Script
 
-## Intro
-"Pocketful Factory is a four-seat autonomous software factory for the pocketful challenge. It turns a single dispatch into a reviewable, testable build without introducing hidden human steps."
+The final video uses the narration below with on-screen chapter captions. It
+includes two real BAND room excerpts from the supplied recordings. The excerpt
+is cropped to the conversation, workstation paths are masked, and the original
+screen-recording audio is muted.
 
-## Problem
-"The task is to protect a wallet and peer-to-peer payments system while preserving the balance ledger and handling the flow of funds exactly as specified."
+1. **Opening:** Pocketful Factory is a four-seat software factory built for a wallet and peer-to-peer payments challenge.
+2. **Problem:** For payments, correctness means more than a successful response. Balances must conserve funds, and malformed requests must fail safely.
+3. **Workflow:** Foreman coordinates, Smith implements, Inspector independently verifies, and Stresser probes resilience. Defects return to Smith for a verified follow-up.
+4. **Real room excerpt:** This real Band room excerpt shows the review request, Inspector's acceptance, then a hardening order to Stresser. Workstation paths are masked.
+5. **Defect story:** After that acceptance, Stresser flagged empty-body handling. Smith fixed it and independently found a cold-start index defect; Inspector accepted the delta.
+6. **Proof:** Stage One passed 147 of 147 official checks. An independent review repeated the pass; separate private smoke suites passed 145 of 145.
+7. **Autonomy accounting:** The run needed four human messages, included three OpenCode timeouts, and stalled for about one hour and fifty-five minutes.
+8. **Stage boundary:** Stage One shipped. Stage Two was not committed to main; Stages Three and Four were not reached. This is the verified boundary of the result.
+9. **Closing:** Pocketful Factory shows how handoffs, adversarial tests, and independent review can catch defects, while its record stays honest about human input.
 
-## Room recording placeholder
-"[HUMAN: RECORD BAND DESKTOP ROOM] This is the required Band Desktop room capture of the real room, including the dispatch, the review loop, and the final Stage 1 confirmation."
-
-## Walkthrough
-"The factory uses a Foreman, Smith, Inspector, and Stresser. It lints the mandates, launches the seats, and validates that the generated work is generic rather than track-specific."
-
-## Stage 1 proof
-"The shipped result is Stage 1: it builds cleanly, passes the isolated container checks, and returns a valid health signal. The proof commands include docker build, docker run with --network none --cpus=2 --memory=2048m, and the HTTP checks for /health and /_test/reset."
-
-## C1 and C2 story
-"Stresser noticed a concern about empty-body handling, and Smith then found an additional cold-start defect while verifying the fix. Inspector accepted the first revision, then accepted the deltaed revision after the fix. That is the real evidence chain in the room."
-
-## Honesty and limits
-"The room log contains four human messages, three OpenCode timeouts, and a ~1h55m stall. The project is honest about the limits: Stage 2 remained draft-only, and the actual BAND room recording is still pending human capture."
-
-## Closing
-"The repository is public, the Stage 1 result is proven, and the remaining human work is straightforward: record the Band room, fill the spend figure, and submit the final form before the deadline."
+The narration is generated text-to-speech. The ending card identifies the
+voiceover as synthetic.

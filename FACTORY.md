@@ -8,11 +8,13 @@
 
 ## Overview
 
-This factory is a four-seat autonomous software factory built on
+This factory is a four-seat software factory built on
 [Band Desktop](https://band.ai) with [OpenCode](https://opencode.ai) seats
-powered by Featherless AI open-weights models. Given a single dispatch message,
-the factory plans, builds, independently reviews, and adversarially tests each
-stage of the **pocketful** track without human steering.
+powered by Featherless AI open-weights models. Its intended operating loop is
+dispatch, implementation, independent review, and adversarial testing. The
+recorded submission run required four human messages: an initial dispatch, a
+duplicate after a timeout, a continuation after a long stall, and a steering
+note. It also had three OpenCode timeouts; see the evidence below.
 
 The four-stage pipeline is:
 
@@ -45,119 +47,100 @@ them at any software project.
 
 ## Stand it up from scratch
 
-Everything needed is in this repository: the seats' standing instructions are in
-`mandates/`, the tooling that runs them is in `factory/`.
+The source checkout contains the seat mandates and factory tools. The factory
+is an operator-run workflow, not a web app. It needs Python 3.12, `uv`, Git,
+`curl`, OpenCode, BAND Desktop, a Featherless API key, and the event's separate
+kickoff repository. Docker is required for isolated harness runs.
 
-### Prerequisites
+### Step 1 — Set paths
 
-- Linux (tested: Arch Linux, kernel 7.x), `git`, `curl`
-- `uv` ≥ 0.12 (`curl -fsSL https://astral.sh/uv/install.sh | sh`)
-- `opencode` ≥ 1.18 (`curl -fsSL https://opencode.ai/install | bash`)
-- Docker daemon accessible to your user (`docker info` must work)
-- A BAND account + BAND Desktop, and a Featherless AI API key
-- The hackathon kickoff package (the harness and the track specs)
-
-### Step 1 — Get the kickoff package and this repository
+Run these commands from the repository root. The source tools live in
+`factory/factory/` here; after `package-submission.sh`, they live in
+`<result-repo>/factory/`.
 
 ```sh
-git clone <kickoff-repo-url> ~/band-work/dark-factory-wearedevs
-git clone <this-repo-url>    ~/band-work/submission
-cd ~/band-work/submission/factory
+export REPO_ROOT="$(git rev-parse --show-toplevel)"
+if [ -f "$REPO_ROOT/factory/factory/pyproject.toml" ]; then
+  export FACTORY_DIR="$REPO_ROOT/factory/factory"
+else
+  export FACTORY_DIR="$REPO_ROOT/factory"
+fi
+export WORK_ROOT="${WORK_ROOT:-$(dirname "$REPO_ROOT")}"
+export RESULT_REPO="${RESULT_REPO:-$WORK_ROOT/result-final}"
+export HARNESS_REPO="${HARNESS_REPO:-$WORK_ROOT/dark-factory-wearedevs}"
+export CHECKS_DIR="${CHECKS_DIR:-$WORK_ROOT/checks}"
 ```
 
-### Step 2 — Install dependencies
+Clone the event kickoff repository into `$HARNESS_REPO` if it is not already
+there. It is not included in this project.
+
+### Step 2 — Install factory tools
 
 ```sh
-uv sync          # installs band-sdk[opencode] into factory/.venv (Python 3.12)
-chmod +x *.sh
+cd "$FACTORY_DIR"
+uv sync
+chmod +x ./*.sh
+cp .env.example .env
+chmod 600 .env
 ```
 
-### Step 3 — Secrets (never commit these)
+Edit `.env` on your machine with the Featherless key and absolute result path.
+Keep it private. The preflight script reads `HARNESS_REPO` and `CHECKS_DIR`
+from the environment; export them in the shell where you run it.
+
+### Step 3 — Configure OpenCode and BAND
+
+Configure OpenCode with the Featherless provider and the models named by the
+`Model:` lines in `mandates/*.md`. Register the four BAND agents using the
+display names **Foreman**, **Smith**, **Inspector**, and **Stresser**, then
+create the local `agent_config.yaml` expected by the BAND SDK. That file is
+intentionally excluded from this repository; never commit its credentials.
+
+### Step 4 — Install the event harness
+
+Follow the kickoff repository's own installation instructions from
+`$HARNESS_REPO`. Confirm that `python -m harness --help` works and that Docker
+is available before starting an isolated test. If browser-based harness checks
+are used, install the browser dependencies required by that harness.
+
+### Step 5 — Create a result repository and start the factory
 
 ```sh
-cp .env.example .env && chmod 600 .env     # set FEATHERLESS_API_KEY and RESULT_REPO
+cd "$FACTORY_DIR"
+./bootstrap-repo.sh "$RESULT_REPO"
+./start-factory.sh
 ```
 
-### Step 4 — Configure OpenCode (outside any repo)
+`start-factory.sh` reads `RESULT_REPO` and `FEATHERLESS_API_KEY` from the
+environment or local `.env`, checks the seat configuration, and refuses to
+continue if a seat fails its startup gate.
 
-`~/.config/opencode/opencode.json`. **Every `Model:` line in `mandates/*.md` must
-appear under `models`** (`./start-factory.sh` prints the model each seat will use):
+### Step 6 — Dispatch and stop
 
-```json
-{
-  "$schema": "https://opencode.ai/config.json",
-  "provider": {
-    "featherless": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Featherless AI",
-      "options": { "baseURL": "https://api.featherless.ai/v1", "apiKey": "{env:FEATHERLESS_API_KEY}" },
-      "models": {
-        "zai-org/GLM-5.3-Flash": {},
-        "MiniMaxAI/MiniMax-M2.5": {}
-      }
-    }
-  }
-}
-```
-
-### Step 5 — Register the four seats in BAND Desktop
-
-Create four external agents named exactly **Foreman**, **Smith**, **Inspector**,
-**Stresser**. Save each agent's id and API key into `factory/agent_config.yaml`
-under the lowercase role key (`foreman`, `smith`, `inspector`, `stresser`).
-Redacted example of the file as read by `band.config.load_agent_config`:
-
-```yaml
-foreman:
-  agent_id: REDACTED
-  api_key: REDACTED
-smith:
-  agent_id: REDACTED
-  api_key: REDACTED
-inspector:
-  agent_id: REDACTED
-  api_key: REDACTED
-stresser:
-  agent_id: REDACTED
-  api_key: REDACTED
-```
-
-### Step 6 — Harness environment
+In a new BAND Desktop room, send Foreman the rendered task:
 
 ```sh
-cd ~/band-work/dark-factory-wearedevs
-python3.12 -m venv .venv && . .venv/bin/activate
-pip install -r harness/requirements.txt
-python -m playwright install --with-deps chromium
+./render-dispatch.sh pocketful --stages 1
 ```
 
-If `docker info` says permission denied: `sudo usermod -aG docker $USER`, then `newgrp docker`.
+Monitor the factory logs, then stop the run with `./stop-factory.sh`. Record
+every human intervention and timeout in the final account; do not describe a
+run as autonomous if it required follow-up messages.
 
-### Step 7 — Fresh result repository, then start the band
+### Step 7 — Package and verify
+
+Download the full BAND room export to `$RESULT_REPO/room.json`, then run:
 
 ```sh
-cd ~/band-work/submission/factory
-./bootstrap-repo.sh ~/band-work/result-final        # copies mandates/, templates; no stage content
-export RESULT_REPO=~/band-work/result-final
-./start-factory.sh        # lints mandates, starts opencode + 4 seats; exits non-zero if any seat is not up
+./package-submission.sh "$RESULT_REPO"
+./preflight.sh "$RESULT_REPO" --final
+python "$FACTORY_DIR/src/analyze_room.py" \
+  "$RESULT_REPO/room.json" --repo "$RESULT_REPO"
 ```
 
-### Step 8 — Dispatch (the only human input)
-
-```sh
-./render-dispatch.sh pocketful      # prints (and copies) the dispatch with every path resolved
-```
-
-Create a **new** room in BAND Desktop, paste the dispatch to **Foreman**, then do
-nothing until Foreman's final report. `./stop-factory.sh` stops everything.
-
-### Step 9 — After the run
-
-```sh
-./package-submission.sh "$RESULT_REPO"            # copies tooling + mandates into the repo
-./preflight.sh "$RESULT_REPO" --final             # fresh clone, harness check, isolated run, secret scan
-python src/analyze_room.py "$RESULT_REPO/room.json" --repo "$RESULT_REPO"
-```
+`preflight.sh --final` fresh-clones the Git repository and runs the event
+harness. It needs `HARNESS_REPO` (or an installed `harness` module) and Docker.
+Resolve every reported warning or failure before submission.
 
 ---
 
@@ -258,7 +241,7 @@ _(append-only log — add entries as they happen)_
 | 3 | Not reached | — | — | — |
 | 4 | Not reached | — | — | — |
 
-### Run facts (fill from `analyze_room.py` and `factory/run-evidence/`)
+### Run facts (from `analyze_room.py` and the room export)
 
 | Fact | Value |
 |---|---|
@@ -317,7 +300,7 @@ _(append-only log — add entries as they happen)_
    shows the attempt and the evidence.
 
 4. **`preflight.sh` catches submission problems.**
-   Before pushing, run `./preflight.sh ~/band-work/result` to fresh-clone
+   Before pushing, run `./preflight.sh "$RESULT_REPO"` to fresh-clone
    the repo, run `harness check`, run `harness run --all --mode isolated`,
    and check for structural issues (missing Dockerfiles, .git inside stage
    dirs, credential patterns). This is the only check that catches a file
@@ -337,9 +320,8 @@ _(append-only log — add entries as they happen)_
 - **No Docker Sandbox.** OpenCode seats run on the host and hold broad
   permissions. A seat that runs a harmful command reaches the host filesystem.
   Mitigation: run on a throwaway machine or VM for the final submission run.
-- **Playwright browser tests require system deps.** On Arch Linux, run
-  `python -m playwright install --with-deps chromium` once before the harness
-  venv is used for stage-2 checks.
+- **Browser tests require browser dependencies.** Install the dependencies
+  required by the kickoff harness before running its browser checks.
 - **`harness run --mode isolated` requires Docker daemon access.**
   If Docker permission is denied, add the user to the `docker` group and
   open a new shell (`newgrp docker`).

@@ -1,9 +1,17 @@
-Pocketful Factory is a four-seat autonomous software factory for the pocketful challenge.
-The real goal is to preserve the correctness of a wallet and peer-to-peer payments system while preventing bad funds movement and verifying all changes independently.
-The required BAND Desktop room record must be captured separately in the actual room. This script marks the slot explicitly because it is a required human action and cannot be simulated.
-The factory uses four seats: Foreman, Smith, Inspector, and Stresser. Each seat is governed by generic mandates, and the mandate lint check confirms the work remains track-agnostic.
-The shipped work is Stage 1. It constructs cleanly in Docker, runs in an isolated container with restricted network access, and returns a valid health response from the service.
-The HTTP checks include /health and the reset behavior. A valid fixture returns 204, while an empty-body request returns 400, showing the service rejects malformed input.
-The defect story is honest: Stresser found a concern about empty-body handling, Smith fixed it and also found a bonus cold-start issue, and Inspector accepted the deltaed revision after verification.
-The room log also contains four human messages, three OpenCode timeouts, and roughly a 1h55m stall, which must be disclosed to the judges as part of the autonomy accounting.
-The final submission cannot claim a complete room-recording pass until the human records the actual BAND desktop room. The repo remains honest: Stage 2 remains draft-only, stages 3 and 4 are not reached, and the final form and spend figure are still pending human action.
+Pocketful Factory is a four-seat software factory built for a wallet and peer-to-peer payments challenge.
+
+For payments, correctness means more than a successful response. Balances must conserve funds, and malformed requests must fail safely.
+
+Foreman coordinates, Smith implements, Inspector independently verifies, and Stresser probes resilience. Defects return to Smith for a verified follow-up.
+
+This real Band room excerpt shows the review request, Inspector's acceptance, then a hardening order to Stresser. Workstation paths are masked.
+
+After that acceptance, Stresser flagged empty-body handling. Smith fixed it and independently found a cold-start index defect; Inspector accepted the delta.
+
+Stage One passed 147 of 147 official checks. An independent review repeated the pass; separate private smoke suites passed 145 of 145.
+
+The run needed four human messages, included three OpenCode timeouts, and stalled for about one hour and fifty-five minutes.
+
+Stage One shipped. Stage Two was not committed to main; Stages Three and Four were not reached. This is the verified boundary of the result.
+
+Pocketful Factory shows how handoffs, adversarial tests, and independent review can catch defects, while its record stays honest about human input.

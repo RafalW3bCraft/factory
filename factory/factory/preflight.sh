@@ -12,7 +12,7 @@
 #      or uses a remote URL via git clone.
 #   2. Runs "python -m harness check <clone> --track pocketful".
 #   3. Runs "python -m harness run --track pocketful --repo <clone>
-#             --all --mode isolated --out <new dir under ~/band-work/checks>".
+#             --all --mode isolated" with output under CHECKS_DIR.
 #   4. Asserts structural rules (no .git inside stage dirs, no submodules,
 #      no symlinks, Dockerfile + RUN.md per stage, room.json present,
 #      no credential patterns, mandate header lines present).
@@ -21,20 +21,24 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CHECKS_BASE="${HOME}/band-work/checks"
+[[ -f "$SCRIPT_DIR/.env" ]] && { set -a; source "$SCRIPT_DIR/.env"; set +a; }
+CHECKS_BASE="${CHECKS_DIR:-${HOME}/checks}"
 
-# Locate the harness venv. Try:
-# 1. Sibling dark-factory-wearedevs/ next to this factory dir
-# 2. HARNESS_REPO env var (override)
-# 3. ~/band-work/dark-factory-wearedevs (conventional location)
+# Locate the event harness. An explicit HARNESS_REPO always takes precedence.
 if [[ -n "${HARNESS_REPO:-}" ]]; then
-    : # use env var as-is
-elif HARNESS_REPO="$(cd "$SCRIPT_DIR/../dark-factory-wearedevs" 2>/dev/null && pwd)"; then
-    : # found sibling
-elif [[ -d "$HOME/band-work/dark-factory-wearedevs" ]]; then
-    HARNESS_REPO="$HOME/band-work/dark-factory-wearedevs"
+    [[ -d "$HARNESS_REPO" ]] && HARNESS_REPO="$(cd "$HARNESS_REPO" && pwd)"
 else
     HARNESS_REPO=""
+    for candidate in \
+        "$SCRIPT_DIR/../dark-factory-wearedevs" \
+        "$SCRIPT_DIR/../../dark-factory-wearedevs" \
+        "$SCRIPT_DIR/../../../dark-factory-wearedevs" \
+        "$HOME/dark-factory-wearedevs"; do
+        if [[ -d "$candidate" ]]; then
+            HARNESS_REPO="$(cd "$candidate" && pwd)"
+            break
+        fi
+    done
 fi
 
 # ── helpers ──────────────────────────────────────────────────────────────────

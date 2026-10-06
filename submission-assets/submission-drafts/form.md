@@ -1,37 +1,41 @@
 # Hackathon Submission Form Copy
 
 ## Project Title
-Pocketful Factory: A Four-Seat Dark Factory That Proves Its Own Work
+Pocketful Factory: A Four-Seat Software Factory With Independent Verification
 
 ## Short Description (< 200 chars)
-Four generic BAND seats (planner, builder, independent reviewer, tester) built pocketful from a single human dispatch. Automated checks run in an isolated offline container.
+Four BAND seats built and tested Pocketful Stage 1, using independent review, adversarial probes, and isolated verification.
 
 ## Long Description
 
 ### 1. The Band
-The factory operates four specialized seats over the Band Agentic Mesh connected to an OpenCode headless adapter:
-- **Foreman (zai-org/GLM-5.3-Flash):** Coordinates work intake, breaks stage specs into REQ-numbered handoffs, and ensures consensus before advancing.
-- **Smith (zai-org/GLM-5.3-Flash):** Implements service code, Dockerfile, and RUN.md, committing atomically to the repository under `Smith <Smith@factory.invalid>`.
-- **Inspector (MiniMaxAI/MiniMax-M2.5):** Independent reviewer from a different model family. Independently executes test suites in clean environments and issues pass/rejection verdicts mapping each REQ ID to reproduced command output.
-- **Stresser (zai-org/GLM-5.3-Flash):** Adversarial tester probing edge conditions (concurrency, idempotency replays, state restore, conservation of funds).
+The factory uses four specialized seats connected through BAND Desktop and an
+OpenCode adapter:
+- **Foreman:** Coordinates work, routes handoffs, and reports stage outcomes.
+- **Smith:** Implements the service and commits revisions.
+- **Inspector:** Independently checks the submitted revision and records an acceptance decision.
+- **Stresser:** Probes edge cases including concurrency, idempotency, state restoration, and conservation of funds.
 
-### 2. Why the Mandates are Generic
-All mandate files (`mandates/*.md`) are strictly task-agnostic standing operating procedures. They enforce:
-- Zero track-specific endpoints, route names, status codes, or domain nouns (verified by mechanical AST and regex linting).
-- Explicit handoff contracts and REQ-ID evidence mapping.
-- Dark-factory protocol: auto-rejecting questions to prevent stalling or human steering.
-The same band mandates can build completely different services simply by swapping the dispatch brief.
+### 2. Generic Mandates
+The four seat mandates describe reusable operating procedures rather than
+Pocketful-specific product requirements. A mechanical lint check rejects
+track-specific details in those mandates. A new task can use the same factory
+by changing the dispatch.
 
-### 3. How It Catches and Recovers from Bad Work
-Quality assurance is built into the workflow through independent reproduction and adversarial probing:
-- The Inspector refuses to accept claimed outputs without running checks independently.
-- When defects are detected, exact terminal error logs are returned to Smith with structured rejection messages.
-- Smith applies revisions and re-submits until all stage suites and isolated checks pass.
+### 3. Defect Discovery and Verification
+Inspector accepted the first Stage 1 revision. After that, Stresser raised a
+concern that an empty request body returned the wrong status. Foreman routed a
+follow-up to Smith, who corrected that behavior and independently found a
+cold-start index defect. Inspector then verified and accepted the revised
+commit. The room evidence does not show an Inspector rejection causing either
+fix.
 
-### 4. Measured Results, Costs, and Limitations
-- **Harness & Offline Verification:** All completed stages pass validation under isolated network mode (`--network none`, 2 vCPU, 2 GiB memory cap).
-- **Autonomy:** Exactly 1 human message (the initial dispatch) in the room log.
-- **Known Limitations:** Subject to upstream inference provider rate limits and context length constraints during heavy build output inspection.
+### 4. Results and Limitations
+- **Stage 1:** 147/147 official harness checks passed; independent review repeated the pass.
+- **Additional checks:** Separate private smoke suites passed 145/145.
+- **Autonomy accounting:** Four human messages were recorded: the original dispatch, a duplicate after a timeout, a continuation after a long stall, and a steering note. The run also had three OpenCode timeouts and an approximately 1 hour 55 minute stall.
+- **Stage boundary:** Stage 1 shipped. Stage 2 was not committed to `main`; Stages 3 and 4 were not reached.
+- **Limitations:** The factory depends on external BAND, OpenCode, and inference-provider services, and is subject to their availability and rate limits.
 
 ## Tags
-Band Agentic Mesh, OpenCode, Featherless, Autonomous Software Factory, Python, Docker
+Band Agentic Mesh, OpenCode, Featherless, Software Factory, Python, Docker
