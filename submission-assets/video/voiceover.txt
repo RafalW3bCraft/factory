@@ -6,12 +6,14 @@ Foreman coordinates, Smith implements, Inspector independently verifies, and Str
 
 This real Band room excerpt shows the review request, Inspector's acceptance, then a hardening order to Stresser. Workstation paths are masked.
 
-After that acceptance, Stresser flagged empty-body handling. Smith fixed it and independently found a cold-start index defect; Inspector accepted the delta.
+After that acceptance, Stresser flagged empty-body handling: an empty body returned 422 instead of the specified 400. Smith took the follow-up.
 
-Stage One passed 147 of 147 official checks. An independent review repeated the pass; separate private smoke suites passed 145 of 145.
+Smith fixed C1 and independently found C2. This real room excerpt shows Inspector accepting the delta and Stresser reporting a clean verdict.
+
+Stage One passed 147 of 147 official checks; independent review repeated that pass. Separate private smoke suites passed 145 of 145.
 
 The run needed four human messages, included three OpenCode timeouts, and stalled for about one hour and fifty-five minutes.
 
-Stage One shipped. Stage Two was not committed to main; Stages Three and Four were not reached. This is the verified boundary of the result.
+Stage One shipped. Stage Two was not committed to main; Stages Three and Four were not reached. This is the verified result boundary.
 
-Pocketful Factory shows how handoffs, adversarial tests, and independent review can catch defects, while its record stays honest about human input.
+Pocketful Factory demonstrates reviewable handoffs and adversarial testing, alongside an honest account of human input and limits.

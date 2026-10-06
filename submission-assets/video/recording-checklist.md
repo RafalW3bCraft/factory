@@ -10,7 +10,7 @@ recreate the chat.
 
 - Inspector review request and acceptance.
 - Foreman's hardening order to Stresser.
-- Stresser's concern, Smith's follow-up fix, and Inspector's later delta acceptance.
+- The narration and captions cover Stresser's concern and Smith's fix; the room excerpt shows Inspector's later acceptance and Stresser's clean verdict.
 
 ## Privacy checks
 
