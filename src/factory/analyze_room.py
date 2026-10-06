@@ -26,7 +26,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-TEXT_KEYS = ("content", "text", "body", "message")
+TEXT_KEYS = ("content", "text", "body", "message", "parts", "blocks")
 TIME_KEYS = ("created_at", "inserted_at", "timestamp", "sent_at", "createdAt", "insertedAt", "time", "ts")
 SENDER_KEYS = ("sender_name", "sender", "author", "from", "agent_name", "user", "name")
 TYPE_KEYS = ("sender_type", "senderType", "author_type", "role")
@@ -39,11 +39,19 @@ REJECT = re.compile(
 def _s(v: object) -> str | None:
     if isinstance(v, str):
         return v
+    if isinstance(v, list):
+        parts = []
+        for item in v:
+            part_str = _s(item)
+            if part_str:
+                parts.append(part_str)
+        return "\n".join(parts) if parts else None
     if isinstance(v, dict):
         for k in ("text", "content", "name", "display_name", "handle", "username", "id"):
             val = v.get(k)
-            if isinstance(val, str):
-                return val
+            extracted = _s(val)
+            if extracted:
+                return extracted
     return None
 
 
@@ -60,20 +68,39 @@ def parse_time(v: object) -> datetime | None:
     try:
         if isinstance(v, (int, float)):
             return datetime.fromtimestamp(v / 1000 if v > 1e11 else v, tz=UTC)
-        dt = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        raw = str(v).strip()
+        if not raw:
+            return None
+        if raw.replace(".", "", 1).isdigit():
+            num = float(raw)
+            return datetime.fromtimestamp(num / 1000 if num > 1e11 else num, tz=UTC)
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
     except Exception:
         return None
 
 
-def walk(o: object) -> Generator[Any, None, None]:
-    if isinstance(o, dict):
-        yield o
-        for v in o.values():
-            yield from walk(v)
-    elif isinstance(o, list):
-        for v in o:
-            yield from walk(v)
+def walk(o: object, max_depth: int = 50) -> Generator[Any, None, None]:
+    stack: list[tuple[object, int]] = [(o, 0)]
+    visited_ids: set[int] = set()
+    while stack:
+        curr, depth = stack.pop()
+        if depth > max_depth:
+            continue
+        obj_id = id(curr)
+        if obj_id in visited_ids:
+            continue
+        if isinstance(curr, (dict, list)):
+            visited_ids.add(obj_id)
+        if isinstance(curr, dict):
+            yield curr
+            for v in curr.values():
+                if isinstance(v, (dict, list)):
+                    stack.append((v, depth + 1))
+        elif isinstance(curr, list):
+            for v in curr:
+                if isinstance(v, (dict, list)):
+                    stack.append((v, depth + 1))
 
 
 def messages(data: object) -> list[dict[str, Any]]:

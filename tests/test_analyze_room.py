@@ -64,6 +64,39 @@ class AnalyzeRoomUnitTests(unittest.TestCase):
         elements = list(walk(data))
         self.assertTrue(any(isinstance(e, dict) and "b" in e for e in elements))
 
+    def test_walk_handles_circular_references(self) -> None:
+        data: dict[str, object] = {"a": 1}
+        data["self"] = data  # circular reference
+        elements = list(walk(data))
+        self.assertEqual(len(elements), 1)
+
+    def test_walk_enforces_depth_limit(self) -> None:
+        curr: dict[str, object] = {"val": "leaf"}
+        for _ in range(60):
+            curr = {"child": curr}
+        # default max_depth is 50, so leaf at depth 60 should be excluded
+        elements = list(walk(curr, max_depth=10))
+        self.assertLessEqual(len(elements), 11)
+
+    def test_parse_time_string_unix_timestamp(self) -> None:
+        dt = parse_time("1700000000")
+        self.assertIsNotNone(dt)
+        assert dt is not None
+        self.assertEqual(dt.tzinfo, UTC)
+
+    def test_messages_with_block_list_content(self) -> None:
+        raw = [
+            {
+                "id": "block-1",
+                "timestamp": "2026-10-06T10:00:00Z",
+                "sender_name": "Smith",
+                "blocks": [{"text": "Part one"}, {"text": "Part two"}],
+            }
+        ]
+        parsed = messages(raw)
+        self.assertEqual(len(parsed), 1)
+        self.assertEqual(parsed[0]["text"], "Part one\nPart two")
+
     def test_messages_dedup_and_sort(self) -> None:
         raw = [
             {"id": "msg-2", "timestamp": "2026-10-06T10:05:00Z", "sender_name": "Smith", "content": "Building auth"},
