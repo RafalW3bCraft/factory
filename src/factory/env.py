@@ -16,28 +16,42 @@ _ENV_LINE_RE = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
 def parse_env_content(content: str) -> dict[str, str]:
     """Parse environment variables from a string content safely."""
     env_vars: dict[str, str] = {}
-    for line in content.splitlines():
-        line = line.strip()
+    for raw_line in content.splitlines():
+        line = raw_line.strip().rstrip("\r")
         if not line or line.startswith("#"):
             continue
         # Remove export prefix if present
         if line.startswith("export "):
             line = line[7:].strip()
         match = _ENV_LINE_RE.match(line)
-        if match:
-            key, val = match.group(1), match.group(2)
-            # Strip inline comments for unquoted values
-            if val.startswith('"') and val.endswith('"'):
-                val = val[1:-1]
-            elif val.startswith("'") and val.endswith("'"):
-                val = val[1:-1]
-            else:
-                # Unquoted: strip trailing comment if preceded by whitespace
-                if " #" in val:
-                    val = val.split(" #", 1)[0].rstrip()
-                elif "\t#" in val:
-                    val = val.split("\t#", 1)[0].rstrip()
-            env_vars[key] = val
+        if not match:
+            continue
+
+        key, val = match.group(1), match.group(2).strip()
+
+        # Handle double-quoted values: "..." possibly followed by comment
+        if val.startswith('"'):
+            match_quoted = re.match(r'^"((?:\\.|[^"\\])*)"(?:\s*#.*)?$', val)
+            if match_quoted:
+                val = match_quoted.group(1)
+                val = val.replace(r"\"", '"').replace(r"\n", "\n").replace(r"\t", "\t").replace(r"\\", "\\")
+            elif " #" in val:
+                val = val.split(" #", 1)[0].rstrip()
+        # Handle single-quoted values: '...' (literal)
+        elif val.startswith("'"):
+            match_quoted = re.match(r"^'([^']*)'(?:\s*#.*)?$", val)
+            if match_quoted:
+                val = match_quoted.group(1)
+            elif " #" in val:
+                val = val.split(" #", 1)[0].rstrip()
+        else:
+            # Unquoted: strip trailing comment if preceded by whitespace
+            if " #" in val:
+                val = val.split(" #", 1)[0].rstrip()
+            elif "\t#" in val:
+                val = val.split("\t#", 1)[0].rstrip()
+
+        env_vars[key] = val
     return env_vars
 
 

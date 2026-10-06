@@ -79,6 +79,37 @@ class SafeEnvParserTests(unittest.TestCase):
             if "TEST_FACTORY_ENV_VAR" in os.environ:
                 del os.environ["TEST_FACTORY_ENV_VAR"]
 
+    def test_parse_crlf_line_endings(self) -> None:
+        content = "WINDOWS_VAR=crlf_value\r\nANOTHER_VAR=second_crlf\r\n"
+        res = parse_env_content(content)
+        self.assertEqual(res, {"WINDOWS_VAR": "crlf_value", "ANOTHER_VAR": "second_crlf"})
+
+    def test_parse_quoted_value_with_trailing_comment(self) -> None:
+        content = "KEY_DOUBLE=\"val with space\" # comment here\nKEY_SINGLE='single val' # single comment\n"
+        res = parse_env_content(content)
+        self.assertEqual(res, {"KEY_DOUBLE": "val with space", "KEY_SINGLE": "single val"})
+
+    def test_parse_hash_inside_quotes_is_preserved(self) -> None:
+        content = "PASSWORD=\"foo#bar#baz\" # inline comment\nHASH_SINGLE='hash#in#single'\n"
+        res = parse_env_content(content)
+        self.assertEqual(res, {"PASSWORD": "foo#bar#baz", "HASH_SINGLE": "hash#in#single"})
+
+    def test_parse_escaped_quotes_and_newlines(self) -> None:
+        content = r'ESCAPED="line1\nline2 and \"quotes\""' + "\n"
+        res = parse_env_content(content)
+        self.assertEqual(res["ESCAPED"], 'line1\nline2 and "quotes"')
+
+    def test_parse_url_with_fragment(self) -> None:
+        content = "DOCS_URL=https://example.com/docs#intro\n"
+        res = parse_env_content(content)
+        self.assertEqual(res["DOCS_URL"], "https://example.com/docs#intro")
+
+    def test_parse_unclosed_quotes_with_comments(self) -> None:
+        content = "UNCLOSED=\"some text # comment\nUNCLOSED_SINGLE='some text # comment\n"
+        res = parse_env_content(content)
+        self.assertEqual(res["UNCLOSED"], '"some text')
+        self.assertEqual(res["UNCLOSED_SINGLE"], "'some text")
+
 
 if __name__ == "__main__":
     unittest.main()

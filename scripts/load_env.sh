@@ -11,6 +11,9 @@ load_env_safe() {
     [[ -f "$env_file" ]] || return 0
 
     while IFS= read -r line || [[ -n "$line" ]]; do
+        # Strip trailing carriage return for CRLF support
+        line="${line%$'\r'}"
+
         # Trim leading/trailing whitespace
         line="${line#"${line%%[![:space:]]*}"}"
         line="${line%"${line##*[![:space:]]}"}"
@@ -26,10 +29,15 @@ load_env_safe() {
             local key="${BASH_REMATCH[1]}"
             local val="${BASH_REMATCH[2]}"
 
-            # Handle quoted values
-            if [[ "$val" =~ ^\"(.*)\"$ ]]; then
+            # Trim whitespace from val
+            val="${val#"${val%%[![:space:]]*}"}"
+            val="${val%"${val##*[![:space:]]}"}"
+
+            # Handle double-quoted values (with optional trailing comment)
+            if [[ "$val" =~ ^\"(.*)\"[[:space:]]*(#.*)?$ ]]; then
                 val="${BASH_REMATCH[1]}"
-            elif [[ "$val" =~ ^\'(.*)\'$ ]]; then
+            # Handle single-quoted values (with optional trailing comment)
+            elif [[ "$val" =~ ^\'(.*)\'[[:space:]]*(#.*)?$ ]]; then
                 val="${BASH_REMATCH[1]}"
             else
                 # Unquoted: strip trailing comment if separated by space

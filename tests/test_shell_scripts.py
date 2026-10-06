@@ -97,18 +97,23 @@ class ShellScriptsIntegrationTests(unittest.TestCase):
         load_script = FACTORY_ROOT / "scripts" / "load_env.sh"
         with TemporaryDirectory() as tmpdir:
             env_file = Path(tmpdir) / ".env"
-            env_file.write_text('TEST_KEY=safe_value\nQUOTED_KEY="with spaces"\n', encoding="utf-8")
+            env_file.write_text(
+                "TEST_KEY=safe_value\r\nQUOTED_KEY=\"with spaces\" # comment\r\nSINGLE_KEY='single_val' # cmt\r\n",
+                encoding="utf-8",
+            )
 
             bash_cmd = f"""
             source {load_script}
             load_env_safe {env_file}
             echo "KEY1=$TEST_KEY"
             echo "KEY2=$QUOTED_KEY"
+            echo "KEY3=$SINGLE_KEY"
             """
             res = subprocess.run(["bash", "-c", bash_cmd], capture_output=True, text=True)
             self.assertEqual(res.returncode, 0)
             self.assertIn("KEY1=safe_value", res.stdout)
             self.assertIn("KEY2=with spaces", res.stdout)
+            self.assertIn("KEY3=single_val", res.stdout)
 
     def test_stop_factory_when_not_running(self) -> None:
         stop_script = FACTORY_ROOT / "stop-factory.sh"
