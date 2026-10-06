@@ -17,8 +17,17 @@ fi
 
 REPO="$1"
 REVISION="${2:-HEAD}"
-shift 2 2>/dev/null || shift $#
-TEST_CMD=("${@:-}")
+if [[ $# -ge 2 ]]; then
+    shift 2
+elif [[ $# -eq 1 ]]; then
+    shift 1
+fi
+
+if [[ $# -gt 0 ]]; then
+    TEST_CMD=("$@")
+else
+    TEST_CMD=()
+fi
 
 echo "=== Dark Factory Milestone Verifier ==="
 echo "Target repo: $REPO"
