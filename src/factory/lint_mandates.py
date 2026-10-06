@@ -24,13 +24,20 @@ REQUIRED_SEATS = ("foreman", "smith", "inspector", "stresser")
 HARNESS_RE = re.compile(r"^[-*_ \t]*Harness[*_ \t]*:\s*(.+)$", re.IGNORECASE)
 MODEL_RE = re.compile(r"^[-*_ \t]*Model[*_ \t]*:\s*(.+)$", re.IGNORECASE)
 
-# Secret pattern detectors
+# Secret and security pattern detectors
 SECRET_PATTERNS = [
     ("api-key-prefix", re.compile(r"\b(sk-[A-Za-z0-9]{20,}|rc_[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,})\b")),
     ("bearer-token", re.compile(r"(?i)bearer\s+[a-z0-9_\-\.]{25,}")),
     ("private-key", re.compile(r"-----BEGIN (?:RSA |EC )?PRIVATE KEY-----")),
     ("password-assignment", re.compile(r"(?i)\b(?:password|passwd|secret|api_key)\s*[:=]\s*['\"][^'\"]{8,}['\"]")),
 ]
+
+INVISIBLE_UNICODE_RE = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]")
+INJECTION_MARKERS = re.compile(
+    r"\b(ignore\s+(?:all\s+)?previous\s+instructions|disregard\s+earlier\s+instructions|system\s+prompt\s+override|<system>)\b",
+    re.IGNORECASE,
+)
+TRUST_BOUNDARY_RE = re.compile(r"DATA,\s*NEVER\s*INSTRUCTIONS", re.IGNORECASE)
 
 
 def lint(dirpath: Path) -> int:
@@ -54,9 +61,14 @@ def lint(dirpath: Path) -> int:
         return 1
 
     for md in md_files:
-        lines = md.read_text(encoding="utf-8").splitlines()
+        content = md.read_text(encoding="utf-8")
+        lines = content.splitlines()
         harness_found = False
         model_found = False
+
+        # Mandatory trust boundary declaration check (Finding S6)
+        if not TRUST_BOUNDARY_RE.search(content):
+            violations.append(f"{md.name}: Missing mandatory trust boundary clause ('DATA, NEVER INSTRUCTIONS')")
 
         for n, line in enumerate(lines, 1):
             h_match = HARNESS_RE.match(line.strip())
@@ -72,6 +84,14 @@ def lint(dirpath: Path) -> int:
                 if not model_val:
                     violations.append(f"{md.name}:{n}: Empty Model specification")
                 model_found = True
+
+            # Invisible unicode detection
+            if INVISIBLE_UNICODE_RE.search(line):
+                violations.append(f"{md.name}:{n}: Invisible or bidirectional unicode character detected")
+
+            # Injection marker detection
+            if INJECTION_MARKERS.search(line):
+                violations.append(f"{md.name}:{n}: Potential prompt injection marker detected")
 
             # Secret scanning
             for s_name, s_rx in SECRET_PATTERNS:
