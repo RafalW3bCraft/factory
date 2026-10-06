@@ -16,6 +16,12 @@ FACTORY_ROOT="$SCRIPT_DIR"
 PID_DIR="$FACTORY_ROOT/logs/pids"
 OC_PORT="${OPENCODE_PORT:-4096}"
 
+# Validate OPENCODE_PORT format
+if ! [[ "$OC_PORT" =~ ^[0-9]+$ ]] || (( OC_PORT < 1024 || OC_PORT > 65535 )); then
+    echo "[stop] WARN: Invalid OPENCODE_PORT '$OC_PORT'; defaulting to 4096." >&2
+    OC_PORT=4096
+fi
+
 SEATS=(foreman smith inspector stresser)
 
 kill_pid_file() {
@@ -23,7 +29,12 @@ kill_pid_file() {
     local pidfile="$PID_DIR/${name}.pid"
     if [[ -f "$pidfile" ]]; then
         local pid
-        pid="$(cat "$pidfile")"
+        pid="$(cat "$pidfile" 2>/dev/null | tr -d '[:space:]')"
+        if [[ ! "$pid" =~ ^[1-9][0-9]*$ ]] || (( pid <= 1 || pid == $$ )); then
+            echo "[stop] Invalid or unsafe PID in '$pidfile'; removing."
+            rm -f "$pidfile"
+            return 0
+        fi
         if kill -0 "$pid" 2>/dev/null; then
             # Safety: ensure process cmdline belongs to factory/opencode/python
             if [[ -f "/proc/$pid/cmdline" ]] && ! grep -qE "python|opencode|start-factory|run_seat" "/proc/$pid/cmdline" 2>/dev/null; then

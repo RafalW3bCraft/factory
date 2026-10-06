@@ -44,6 +44,11 @@ RESTART_WINDOW_S=600
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
+# Port validation
+if ! [[ "$OC_PORT" =~ ^[0-9]+$ ]] || (( OC_PORT < 1024 || OC_PORT > 65535 )); then
+    die "Invalid OPENCODE_PORT: '$OC_PORT'. Must be an integer between 1024 and 65535."
+fi
+
 # Initialize run-isolated logs (R3)
 RUN_ID="$(date -u +%Y%m%d_%H%M%SZ)"
 RUN_LOG_DIR="$LOGS_DIR/runs/$RUN_ID"
@@ -72,11 +77,13 @@ except Exception: sys.exit(1)" 2>/dev/null
 }
 
 check_not_running() {
-    local pidfile="$PID_DIR/${1}.pid"
+    local name="$1"
+    local pidfile="$PID_DIR/${name}.pid"
     if [[ -f "$pidfile" ]]; then
-        local old_pid; old_pid="$(cat "$pidfile")"
-        if kill -0 "$old_pid" 2>/dev/null; then
-            die "Seat '$1' is already running (PID $old_pid). Run stop-factory.sh first."
+        local old_pid
+        old_pid="$(cat "$pidfile" 2>/dev/null | tr -d '[:space:]')"
+        if [[ "$old_pid" =~ ^[1-9][0-9]*$ ]] && (( old_pid > 1 )) && kill -0 "$old_pid" 2>/dev/null; then
+            die "Process '$name' is already running (PID $old_pid). Run stop-factory.sh first."
         else
             rm -f "$pidfile"
         fi
@@ -84,6 +91,8 @@ check_not_running() {
 }
 
 # ── pre-flight ──────────────────────────────────────────────────────────────
+
+check_not_running "factory"
 
 load_env_safe "$FACTORY_ROOT/.env"
 
@@ -122,6 +131,8 @@ for seat in "${SEATS[@]}"; do
     echo "$seat ${SEAT_MODEL[$seat]}" | tee -a "$RUN_LOG_DIR/seat_models.txt"
 done
 
+check_not_running "factory"
+check_not_running "opencode"
 for seat in "${SEATS[@]}"; do check_not_running "$seat"; done
 port_in_use "$OC_PORT" && die "Something is already listening on port $OC_PORT. Is opencode serve already running?"
 
