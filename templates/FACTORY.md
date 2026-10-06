@@ -8,11 +8,12 @@
 
 ## Overview
 
-This factory is a four-seat autonomous software factory built on
+This factory is a four-seat software factory built on
 [Band Desktop](https://band.ai) with [OpenCode](https://opencode.ai) seats
-powered by Featherless AI open-weights models. Given a single dispatch message,
-the factory plans, builds, independently reviews, and adversarially tests each
-stage of the **pocketful** track without human steering.
+powered by Featherless AI open-weights models. After a human dispatch, the
+factory plans, builds, independently reviews, and adversarially tests work.
+Record every later human message and timeout; do not describe a run as
+single-dispatch autonomous unless the room export shows that.
 
 The four-stage pipeline is:
 
@@ -38,7 +39,7 @@ them at any software project.
 |---|---|---|---|---|
 | `foreman` | Foreman | OpenCode | `zai-org/GLM-5.3-Flash` | See *Stand it up from scratch* |
 | `smith` | Smith | OpenCode | `zai-org/GLM-5.3-Flash` | See *Stand it up from scratch* |
-| `inspector` | Inspector | OpenCode | `zai-org/GLM-5.3-Flash` | See *Stand it up from scratch* |
+| `inspector` | Inspector | OpenCode | `MiniMaxAI/MiniMax-M2.5` | See *Stand it up from scratch* |
 | `stresser` | Stresser | OpenCode | `zai-org/GLM-5.3-Flash` | See *Stand it up from scratch* |
 
 ---
@@ -91,7 +92,10 @@ appear under `models`** (`./start-factory.sh` prints the model each seat will us
       "npm": "@ai-sdk/openai-compatible",
       "name": "Featherless AI",
       "options": { "baseURL": "https://api.featherless.ai/v1", "apiKey": "{env:FEATHERLESS_API_KEY}" },
-      "models": { "zai-org/GLM-5.3-Flash": {} }
+      "models": {
+        "zai-org/GLM-5.3-Flash": {},
+        "MiniMaxAI/MiniMax-M2.5": {}
+      }
     }
   }
 }
@@ -262,7 +266,7 @@ TBD: for each — what was wrong, the exact evidence Inspector/Stresser produced
 the rejected and the fixing revision hash, and how many turns it took.
 
 **How to measure:**
-- **Start:** `cat ~/band-work/factory/logs/started_at`
+- **Start:** first human dispatch timestamp in `room.json` (the `started_at` run-evidence file is optional and may be missing)
 - **End:** last timestamp in `room.json` (the Foreman's final report message)
 - **Spend:** Featherless subscription page → Usage, filtered to the run dates,
   summed across all four seats.
@@ -304,7 +308,9 @@ the rejected and the fixing revision hash, and how many turns it took.
   Foreman's mandate instructs it to split handoffs into numbered parts.
 - **Single model, single provider (unless the mandates say otherwise).** Seats
   that share a model share blind spots; a reviewer on a different model family is
-  the stronger design. Check `factory/run-evidence/seat_models.txt` for what ran. A Featherless outage halts the factory. Mitigation: the
+  the stronger design. If `factory/run-evidence/seat_models.txt` was not
+  produced, use the `Model:` lines in `mandates/*.md`. A Featherless outage
+  halts the factory. Mitigation: the
   `opencode.json` can list fallback models; mandate the `model_id` change
   if switching.
 - **No Docker Sandbox.** OpenCode seats run on the host and hold broad
