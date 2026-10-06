@@ -6,18 +6,24 @@
 #
 # Validates:
 #   1. System tools: git, uv, python (>=3.12), opencode, band CLI.
-#   2. Virtualenv & Python dependencies (factory package, band-sdk, pyyaml, pytest).
-#   3. Environment & Secrets: .env, FEATHERLESS_API_KEY, permissions.
-#   4. Seat Mandates: verifies foreman, smith, inspector, stresser models & headers.
-#   5. OpenCode Server & Featherless Model availability.
-#   6. Band agent configuration (agent_config.yaml).
-#   7. Target Result Repository readiness.
-#   8. Automated test suite execution.
+#   2. Virtualenv & Python runtime dependencies (factory, band-sdk, pyyaml).
+#   3. Environment & Secret permissions (.env mode 600/400).
+#   4. Seat Mandates & Trust boundaries: validates foreman, smith, inspector, stresser.
+#   5. Provider Authentication & Catalog: confirms mandate models exist in provider catalog (R6).
+#   6. OpenCode Server & Model compatibility.
+#   7. Band agent configuration (agent_config.yaml).
+#   8. Target Result Repository readiness.
+# Optional:
+#   RUN_TESTS=1 ./preflight.sh   # also runs automated test suite
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FACTORY_ROOT="$SCRIPT_DIR"
 cd "$FACTORY_ROOT"
+
+# Load safe env loader (Finding S3)
+# shellcheck source=scripts/load_env.sh disable=SC1091
+source "$FACTORY_ROOT/scripts/load_env.sh"
 
 PASSED=0
 WARNED=0
@@ -33,12 +39,22 @@ echo "=========================================================="
 
 # ── 1. System Binaries ────────────────────────────────────────────────────────
 echo ""
-echo "[1/7] Checking System Tooling …"
-command -v git >/dev/null 2>&1 && ok "git is available ($(git --version))" || fail "git not found"
+echo "[1/8] Checking System Tooling …"
+if command -v git >/dev/null 2>&1; then
+    ok "git is available ($(git --version))"
+else
+    fail "git not found on PATH"
+fi
+
 if ! command -v less >/dev/null 2>&1; then
     git config core.pager cat 2>/dev/null || true
 fi
-command -v uv >/dev/null 2>&1 && ok "uv is available ($(uv --version))" || fail "uv not found"
+
+if command -v uv >/dev/null 2>&1; then
+    ok "uv is available ($(uv --version))"
+else
+    fail "uv not found on PATH"
+fi
 
 OPENCODE_BIN="$(command -v opencode 2>/dev/null || true)"
 if [[ -n "$OPENCODE_BIN" ]]; then
@@ -56,7 +72,7 @@ fi
 
 # ── 2. Python Virtual Environment ─────────────────────────────────────────────
 echo ""
-echo "[2/7] Checking Python Environment & Dependencies …"
+echo "[2/8] Checking Python Environment & Dependencies …"
 PYTHON_BIN="$FACTORY_ROOT/.venv/bin/python"
 if [[ -x "$PYTHON_BIN" ]]; then
     PY_VER="$("$PYTHON_BIN" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")')"
@@ -66,42 +82,52 @@ else
 fi
 
 if [[ -x "$PYTHON_BIN" ]]; then
-    if "$PYTHON_BIN" -c "import band, dotenv, yaml, pytest" >/dev/null 2>&1; then
-        ok "Required Python packages imported successfully (band, dotenv, yaml, pytest)"
+    if "$PYTHON_BIN" -c "import band, yaml, factory" >/dev/null 2>&1; then
+        ok "Required runtime Python packages imported successfully (band, yaml, factory)"
     else
-        fail "One or more Python dependencies missing in virtualenv. Run 'uv sync'."
+        fail "One or more runtime Python dependencies missing in virtualenv. Run 'uv sync'."
     fi
 fi
 
 # ── 3. Configuration & Secrets ────────────────────────────────────────────────
 echo ""
-echo "[3/7] Checking Configuration & Secrets …"
+echo "[3/8] Checking Configuration & Secrets …"
 ENV_FILE="$FACTORY_ROOT/.env"
 if [[ -f "$ENV_FILE" ]]; then
-    # Check permissions
     PERMS="$(stat -c '%a' "$ENV_FILE" 2>/dev/null || stat -f '%A' "$ENV_FILE" 2>/dev/null || echo 'unknown')"
     if [[ "$PERMS" == "600" || "$PERMS" == "400" ]]; then
         ok ".env permissions are secure ($PERMS)"
     else
         warn ".env permissions are $PERMS (recommend running 'chmod 600 .env')"
     fi
-    set -a
-    source "$ENV_FILE"
-    set +a
-    ok ".env loaded"
+    # Safe KEY=VALUE parsing without arbitrary shell execution (S3)
+    load_env_safe "$ENV_FILE"
+    ok ".env loaded safely (no arbitrary shell evaluation)"
 else
     warn ".env file missing. Create one from .env.example."
 fi
 
+# ── 4. Mandates & Models ──────────────────────────────────────────────────────
+echo ""
+echo "[4/8] Validating Agent Mandates & Boundaries …"
+if [[ -x "$PYTHON_BIN" ]]; then
+    if "$PYTHON_BIN" "$FACTORY_ROOT/src/lint_mandates.py" "$FACTORY_ROOT/mandates"; then
+        ok "Mandates linter passed (all 4 mandates valid, trust boundaries present, no secret leaks)"
+    else
+        fail "Mandates linter detected violations in mandates/"
+    fi
+fi
+
+# ── 5. Provider Authentication & Catalog Verification ─────────────────────────
+echo ""
+echo "[5/8] Verifying Provider Authentication & Mandate Models …"
 if [[ -n "${FEATHERLESS_API_KEY:-}" ]]; then
     ok "FEATHERLESS_API_KEY is configured in environment"
-    # Dry-run ping to Featherless API
-    HTTP_CODE="$(curl -s -o /dev/null -w "%{http_code}" \
-        -H "Authorization: Bearer $FEATHERLESS_API_KEY" \
-        -H "Content-Type: application/json" \
-        "https://api.featherless.ai/v1/models" 2>/dev/null || echo "000")"
+    # S4: Header passed via stdin config (-K -), avoiding visible secret in argv / proc
+    HTTP_CODE="$(printf 'header = "Authorization: Bearer %s"\nheader = "Content-Type: application/json"\n' "$FEATHERLESS_API_KEY" | \
+        curl -s -K - -o /dev/null -w "%{http_code}" "https://api.featherless.ai/v1/models" 2>/dev/null || echo "000")"
     if [[ "$HTTP_CODE" == "200" ]]; then
-        ok "Featherless API authentication verified (HTTP 200)"
+        ok "Featherless API authentication verified (HTTP 200 via secure stdin config)"
     else
         warn "Featherless API returned HTTP $HTTP_CODE (verify key or connectivity)"
     fi
@@ -109,6 +135,37 @@ else
     fail "FEATHERLESS_API_KEY is not set. Add it to .env or export it."
 fi
 
+# R6: Verify each seat's model against the provider catalog
+if [[ -x "$PYTHON_BIN" && -n "$OPENCODE_BIN" ]]; then
+    PROVIDER_MODELS="$("$OPENCODE_BIN" models featherless 2>/dev/null || true)"
+    for seat in foreman smith inspector stresser; do
+        seat_model="$("$PYTHON_BIN" "$FACTORY_ROOT/src/run_seat.py" --model-of "$seat" 2>/dev/null || echo '')"
+        if [[ -n "$seat_model" ]]; then
+            if echo "$PROVIDER_MODELS" | grep -q "$seat_model"; then
+                ok "Mandate model for @${seat} verified in catalog: $seat_model"
+            else
+                warn "Mandate model for @${seat} ($seat_model) not detected in provider catalog"
+            fi
+        else
+            fail "Cannot determine mandate model for seat '$seat'"
+        fi
+    done
+fi
+
+# ── 6. OpenCode Server Compatibility ──────────────────────────────────────────
+echo ""
+echo "[6/8] Checking OpenCode Server Configuration …"
+if [[ -n "$OPENCODE_BIN" ]]; then
+    if [[ -n "${OPENCODE_SERVER_PASSWORD:-}" ]]; then
+        ok "OPENCODE_SERVER_PASSWORD configured for authenticated server operation (S5)"
+    else
+        ok "OpenCode server ready (server password will be auto-generated at startup)"
+    fi
+fi
+
+# ── 7. Band Agent Configuration ───────────────────────────────────────────────
+echo ""
+echo "[7/8] Checking Band Agent Configuration …"
 AGENT_CFG="$FACTORY_ROOT/agent_config.yaml"
 if [[ -f "$AGENT_CFG" ]]; then
     ok "agent_config.yaml exists"
@@ -127,35 +184,9 @@ else
     warn "agent_config.yaml not found. Band seats require credentials to connect to rooms."
 fi
 
-# ── 4. Mandates & Models ──────────────────────────────────────────────────────
+# ── 8. Target Result Repository ───────────────────────────────────────────────
 echo ""
-echo "[4/7] Validating Agent Mandates …"
-if [[ -x "$PYTHON_BIN" ]]; then
-    if "$PYTHON_BIN" "$FACTORY_ROOT/src/lint_mandates.py" "$FACTORY_ROOT/mandates"; then
-        ok "Mandates linter passed (all 4 mandates valid, no secret leaks)"
-    else
-        fail "Mandates linter detected violations in mandates/"
-    fi
-fi
-
-# ── 5. OpenCode Server & Model Compatibility ──────────────────────────────────
-echo ""
-echo "[5/7] Checking OpenCode & Models …"
-if [[ -n "$OPENCODE_BIN" ]]; then
-    MODELS_OUTPUT="$("$OPENCODE_BIN" models featherless 2>/dev/null || true)"
-    if echo "$MODELS_OUTPUT" | grep -q "featherless/"; then
-        ok "OpenCode Featherless provider configured with models:"
-        while IFS= read -r m; do
-            [[ -n "$m" ]] && echo "         • $m"
-        done <<< "$MODELS_OUTPUT"
-    else
-        warn "OpenCode Featherless provider models not detected. Ensure ~/.config/opencode/opencode.json is configured."
-    fi
-fi
-
-# ── 6. Target Result Repository ───────────────────────────────────────────────
-echo ""
-echo "[6/7] Validating Target Workspace Repository …"
+echo "[8/8] Validating Target Workspace Repository …"
 TARGET_REPO="${1:-${RESULT_REPO:-}}"
 if [[ -z "$TARGET_REPO" ]]; then
     warn "No RESULT_REPO specified. Pass a repo path or set RESULT_REPO in .env."
@@ -173,14 +204,16 @@ else
     fi
 fi
 
-# ── 7. Test Suite Execution ───────────────────────────────────────────────────
-echo ""
-echo "[7/7] Running Unit & Integration Test Suite …"
-if [[ -x "$PYTHON_BIN" ]]; then
-    if "$PYTHON_BIN" -m pytest -q "$FACTORY_ROOT/tests"; then
-        ok "All automated tests in tests/ passed."
-    else
-        fail "Automated test suite failed."
+# Optional: Run test suite if requested via RUN_TESTS=1
+if [[ "${RUN_TESTS:-0}" == "1" ]]; then
+    echo ""
+    echo "[TESTS] Running Automated Test Suite …"
+    if [[ -x "$PYTHON_BIN" ]]; then
+        if "$PYTHON_BIN" -m pytest -q "$FACTORY_ROOT/tests"; then
+            ok "All automated tests in tests/ passed."
+        else
+            fail "Automated test suite failed."
+        fi
     fi
 fi
 

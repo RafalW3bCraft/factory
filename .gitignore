@@ -15,13 +15,16 @@ build/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
 # Node / JS
 node_modules/
 
-# Factory logs & outputs
+# Factory logs, kill switches & outputs
 logs/
 *.log
+factory.kill
 dispatch/rendered/
 workspace/
 

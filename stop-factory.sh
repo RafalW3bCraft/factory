@@ -1,16 +1,20 @@
 #!/usr/bin/env bash
-# stop-factory.sh — stop factory processes started by start-factory.sh.
+# stop-factory.sh — cleanly stop factory processes started by start-factory.sh.
 #
 # Usage:
 #   ./stop-factory.sh
 #
-# Kills only the opencode server and seat processes whose PIDs were written
-# to logs/pids/ by start-factory.sh. Never kills arbitrary processes.
+# Hardening & Reliability Features:
+#   - Kills only supervisor and seat processes recorded in logs/pids/ (R4).
+#   - Checks /proc/<pid>/cmdline to eliminate PID-reuse race conditions (R4).
+#   - Grace period with SIGTERM before escalating to SIGKILL (R4).
+#   - Dynamic port lookup via OPENCODE_PORT (R5).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FACTORY_ROOT="$SCRIPT_DIR"
 PID_DIR="$FACTORY_ROOT/logs/pids"
+OC_PORT="${OPENCODE_PORT:-4096}"
 
 SEATS=(foreman smith inspector stresser)
 
@@ -31,10 +35,16 @@ kill_pid_file() {
             kill "$pid" 2>/dev/null || true
             # Wait up to 5s for clean exit
             for _ in $(seq 1 5); do
-                kill -0 "$pid" 2>/dev/null || break
+                if ! kill -0 "$pid" 2>/dev/null; then
+                    break
+                fi
                 sleep 1
             done
-            kill -9 "$pid" 2>/dev/null || true
+            # Escalation only if process survived grace period
+            if kill -0 "$pid" 2>/dev/null; then
+                echo "[stop] Escalating to SIGKILL for '$name' (PID $pid)…"
+                kill -9 "$pid" 2>/dev/null || true
+            fi
         else
             echo "[stop] '$name' (PID $pid) is not running."
         fi
@@ -44,22 +54,27 @@ kill_pid_file() {
     fi
 }
 
-# Stop the supervisor (start-factory.sh) FIRST: its watchdog would otherwise
-# restart seats we kill. Its exit trap stops its own children.
+# Stop supervisor first so watchdog doesn't restart terminated seats
 kill_pid_file "factory"
-# Then mop up anything that survived (e.g. supervisor was SIGKILLed).
+
+# Then stop individual seats
 for seat in "${SEATS[@]}"; do
     kill_pid_file "$seat"
 done
+
+# Stop OpenCode server
 kill_pid_file "opencode"
 
-# Check if port 4096 is still bound by an orphaned opencode server
+# Check if configured port is still bound by an orphaned opencode server
 if command -v ss >/dev/null 2>&1; then
-    if ss -tlnH 2>/dev/null | awk '{print $4}' | grep -q ":4096$"; then
-        echo "[stop] Port 4096 is still in use. Checking for orphaned opencode serve…"
-        pkill -f "opencode serve.*4096" 2>/dev/null || true
+    if ss -tlnH 2>/dev/null | awk -v pat=":${OC_PORT}\$" '$4 ~ pat {f=1} END {exit !f}'; then
+        echo "[stop] Port $OC_PORT is still in use. Checking for orphaned opencode serve…"
+        pkill -f "opencode serve.*${OC_PORT}" 2>/dev/null || true
         sleep 1
     fi
 fi
 
-echo "[stop] Done."
+# Clean any leftover kill switch file
+rm -f "$FACTORY_ROOT/factory.kill"
+
+echo "[stop] Factory shutdown complete."

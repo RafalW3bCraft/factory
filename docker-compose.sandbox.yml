@@ -1,0 +1,50 @@
+# docker-compose.sandbox.yml
+# Hermetic isolation specification for Dark Factory seats & OpenCode (Finding S1)
+# Enforces non-root execution, restricted mounts, resource limits, and dropped capabilities.
+
+version: "3.8"
+
+services:
+  factory-sandbox:
+    build:
+      context: .
+      dockerfile: Dockerfile.sandbox
+    container_name: dark-factory-sandbox
+    user: "1000:1000"
+    working_dir: /workspace
+    volumes:
+      # Only the target result repository is mounted read-write
+      - type: bind
+        source: ${RESULT_REPO:-./workspace}
+        target: /workspace
+        read_only: false
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=512m
+      - /run:rw,noexec,nosuid,size=64m
+    environment:
+      - RESULT_REPO=/workspace
+      - OPENCODE_PORT=${OPENCODE_PORT:-4096}
+      - OPENCODE_SERVER_PASSWORD=${OPENCODE_SERVER_PASSWORD:-}
+      - TURN_TIMEOUT_S=${TURN_TIMEOUT_S:-900}
+    # Security containment
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETUID
+      - SETGID
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2048M
+          pids: 256
+    # Network containment: isolated bridge network
+    networks:
+      - factory-net
+
+networks:
+  factory-net:
+    driver: bridge

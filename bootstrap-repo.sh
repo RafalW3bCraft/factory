@@ -5,14 +5,10 @@
 #   ./bootstrap-repo.sh <absolute-path>
 #
 # Creates <path> as a new git repository (branch: main) with:
-#   - mandates/ copied from factory/mandates/
-#   - .gitignore that excludes secrets and build artifacts
-#   - README.md project template with architecture and test sections
+#   - .gitignore that excludes secrets, logs, and build artifacts
+#   - Language-neutral README.md project template with architecture & verification sections (H4)
 #   - Clean initial commit
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-FACTORY_ROOT="$SCRIPT_DIR"
 
 if [[ $# -ne 1 || "$1" == "-h" || "$1" == "--help" ]]; then
     echo "Usage: bootstrap-repo.sh <absolute-path>"
@@ -31,25 +27,23 @@ if [[ -d "$TARGET/.git" ]]; then
 fi
 
 echo "[bootstrap] Creating clean repository at $TARGET …"
-mkdir -p "$TARGET/mandates"
+mkdir -p "$TARGET"
 git -C "$TARGET" init -b main
 
-# Copy mandates from factory
-MANDATES_SRC="$FACTORY_ROOT/mandates"
-if [[ -d "$MANDATES_SRC" ]] && compgen -G "$MANDATES_SRC/*.md" > /dev/null 2>&1; then
-    cp "$MANDATES_SRC/"*.md "$TARGET/mandates/"
-    echo "[bootstrap] Copied mandates from $MANDATES_SRC."
-else
-    echo "[bootstrap] WARNING: no mandate files found in $MANDATES_SRC"
-fi
-
-# .gitignore
+# .gitignore (comprehensive, polyglot & secrets)
 cat > "$TARGET/.gitignore" <<'GITIGNORE'
-# Secrets — never commit credentials or keys
+# Secrets & credentials — never commit
 .env
 *.env
 agent_config.yaml
 opencode.json
+
+# Build & packaging
+dist/
+build/
+target/
+bin/
+obj/
 
 # Python
 __pycache__/
@@ -59,27 +53,37 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.coverage
+htmlcov/
 
-# Node / JS
+# Node / TypeScript
 node_modules/
-dist/
-build/
+.npm/
+.yarn/
+
+# Rust / Go / C++
+Cargo.lock
+vendor/
+*.o
+*.a
+*.so
 
 # Logs & temp
 *.log
 logs/
 tmp/
+temp/
 
-# OS
+# OS metadata
 .DS_Store
 Thumbs.db
 GITIGNORE
 
-# Project README.md
+# Polyglot Project README.md (H4)
 cat > "$TARGET/README.md" <<'README'
 # Project Workspace
 
-Managed and developed autonomously by the Dark Factory band.
+Target workspace engineered and verified autonomously by the Dark Factory band.
 
 ## Factory Team & Roles
 - **@Foreman**: System Architecture, Task Planning, Threat Modeling & Coordination
@@ -87,23 +91,16 @@ Managed and developed autonomously by the Dark Factory band.
 - **@Inspector**: Independent Review, Static Analysis (SAST), Security Audit & Code Forensics
 - **@Stresser**: Adversarial Testing, Fuzzing, Dynamic Penetration & Crash Forensics
 
-## Structure
+## Project Structure
 ```
 .
-├── mandates/       # Operating instructions and models for the 4 seats
-├── src/            # Core application source code
+├── src/            # Application source code
 ├── tests/          # Automated test suites (unit, integration, regression)
-└── docs/           # Architecture decisions, threat models, and incident reports
+└── docs/           # Architecture designs, threat models, and milestone reports
 ```
 
-## Running Checks
-```bash
-# Execute local test suite
-pytest -v
-
-# Run security and linter checks
-ruff check .
-```
+## Verification
+Follow the testing and verification commands defined in the Foreman dispatch.
 README
 
 # Initial commit

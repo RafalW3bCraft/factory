@@ -1,9 +1,9 @@
-"""Tests for Antigravity rules integrity, trigger specifications, and budgets."""
 from __future__ import annotations
 
-import os
-from pathlib import Path
 import unittest
+from pathlib import Path
+from typing import Any
+
 import yaml
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent
@@ -20,7 +20,7 @@ class AntigravityRulesTests(unittest.TestCase):
         self.rule_files = sorted(RULES_DIR.glob("*.md"))
         self.assertGreater(len(self.rule_files), 0, "No rule files found in .agents/rules")
 
-    def parse_frontmatter(self, path: Path) -> dict:
+    def parse_frontmatter(self, path: Path) -> dict[str, Any]:
         text = path.read_text(encoding="utf-8")
         if not text.startswith("---"):
             self.fail(f"Rule file {path.name} is missing YAML frontmatter opening '---'")

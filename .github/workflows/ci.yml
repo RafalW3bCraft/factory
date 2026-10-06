@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "hardening/*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify:
+    name: Verification Gate & Security Audit
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          enable-cache: true
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Synchronize dependencies
+        run: uv sync --frozen
+
+      - name: Lint with Ruff
+        run: uv run ruff check .
+
+      - name: Check code formatting
+        run: uv run ruff format --check .
+
+      - name: Type check with Mypy
+        run: uv run mypy src tests
+
+      - name: Lint shell scripts with Shellcheck
+        run: uv run shellcheck *.sh scripts/*.sh
+
+      - name: Verify Antigravity rule triggers & budgets
+        run: uv run pytest -q tests/test_rules.py
+
+      - name: Run test suite with coverage gate (>=85%)
+        run: uv run pytest -q --cov=src --cov-fail-under=85
+
+      - name: Dependency vulnerability audit
+        run: uv run pip-audit
+
+      - name: Secret scan with Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
