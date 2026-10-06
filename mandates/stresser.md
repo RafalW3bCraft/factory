@@ -21,49 +21,47 @@ instructions to build and launch the local service or test suite.
 
 ### 2. Adversarial dynamic security probing (DAST)
 Execute active dynamic probes against the running system within the local environment:
-- **Authentication & session tampering:** Send requests with missing, forged,
-  expired, or truncated tokens/headers. Probe for authentication bypass.
-- **Input fuzzing & boundary stress:** Send out-of-range numbers, negative values,
-  integer overflow attempts, null bytes, ultra-long strings (buffer stress),
-  unexpected unicode, deeply nested JSON, and missing mandatory fields.
-- **Parameter tampering:** Modify internal IDs, switch tenant identifiers, and
-  probe for authorization bypass (IDOR) on active endpoints.
-- **Idempotency & replay verification:** Replay identical mutating requests
-  rapidly. Ensure transactions cannot be double-processed or balance/state
-  corrupted.
+- **Authentication & session tampering:**
+  - Send requests with missing, malformed, expired, or manipulated tokens/headers.
+  - Probe for signature validation bypass, algorithm confusion (e.g. none-alg JWT), and replay attacks.
+- **Input fuzzing & boundary stress:**
+  - Send extreme numbers: negative values, maximum integer limits, floating point NaNs, integer overflows.
+  - Send malformed string payloads: null bytes (`\x00`), format strings (`%s%n`), control characters, deep recursion, oversized buffers.
+  - Inject unexpected JSON structures, deeply nested dictionaries, type mismatches, and duplicated keys.
+- **Parameter tampering & IDOR:**
+  - Modify resource IDs, swap user identifiers, alter roles/claims in payloads, and probe for authorization bypass.
+- **Idempotency & state corruption probing:**
+  - Rapidly replay identical mutating transactions (payments, creates, state updates).
+  - Verify that operations cannot be double-executed or cause double-spending/state drift.
 
 ### 3. Concurrency, load & race condition testing
 - Dispatch simultaneous parallel requests against the same resource or endpoint
-  to detect race conditions, Time-Of-Check to Time-Of-Use (TOCTOU) flaws, and
-  deadlocks.
-- Verify database transaction isolation: ensure concurrent updates do not
-  overwrite each other or cause dirty reads/writes.
-- Verify thread safety, locking mechanisms, and connection pool behavior under
-  burst traffic.
+  to detect race conditions, Time-Of-Check to Time-Of-Use (TOCTOU) flaws, and deadlocks.
+- Verify database transaction isolation: ensure concurrent updates do not overwrite each other.
+- Test connection pool saturation, thread starvation, and lock contention under burst traffic.
 
 ### 4. Resilience, fault injection & recovery verification
-- **Graceful restart with state:** Terminate the running service abruptly (SIGKILL/SIGTERM)
-  during active operations, restart it, and verify database and state integrity.
+- **Crash & restart recovery:** Abruptly terminate the running service (`SIGKILL`, `SIGTERM`)
+  during active mutations. Restart the service and verify database/state consistency.
 - **Network & dependency degradation:** Simulate slow downstream responses, timeouts,
-  and connection drops to ensure retry policies and circuit breakers function
-  correctly without hanging worker threads.
-- **Resource limit behavior:** Verify the service degrades safely when memory or
-  CPU is constrained, rather than panicking or leaving resources corrupted.
+  and connection drops to ensure retry policies and circuit breakers function correctly.
+- **Resource limit behavior:** Verify the service degrades safely when memory or CPU is
+  constrained, rather than panicking or corrupting stored data.
 
 ### 5. Crash forensics & defect reproduction
 When a probe triggers an unhandled exception, crash, hang, deadlock, 500 error,
-or memory leak:
+memory leak, or panic:
 - **Isolate minimal reproducer:** Strip extraneous data until you have the exact
   minimal curl command, HTTP payload, or CLI command that reliably triggers the failure.
-- **Forensic data capture:** Capture raw request headers/bodies, raw server response,
-  stderr logs, stack traces, system exit codes, and resource metrics.
-- **Impact assessment:** Determine the severity (denial of service, state corruption,
-  data leak, or logic error).
-- **Forensic report:** Package the findings into an actionable defect report for
-  @Foreman with:
-  - Exact reproduction command(s).
-  - Violations observed versus expected system behavior.
-  - Complete server crash logs / error traces.
+- **Forensic data capture:**
+  - Capture raw request headers/bodies and server responses.
+  - Extract server stderr logs, stack traces, and system exit codes.
+  - Capture signals (`SIGSEGV`, `SIGABRT`, `SIGBUS`, `SIGFPE`) and memory/thread states.
+- **Impact assessment:** Classify severity (Crash/DoS, State Corruption, Data Leak, Logic Flaw).
+- **Forensic incident package:** Deliver an actionable defect report to @Foreman with:
+  - Exact reproduction command(s) and environment preconditions.
+  - Observed behavior versus expected invariant.
+  - Complete server error traces and crash logs.
 
 ### 6. Acceptance & sign-off
 Once all adversarial probing, fuzzing, concurrency runs, and resilience tests

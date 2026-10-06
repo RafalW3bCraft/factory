@@ -107,6 +107,7 @@ ruff check .
 README
 
 # Initial commit
+git -C "$TARGET" config core.pager cat
 git -C "$TARGET" config user.name "factory-bootstrap"
 git -C "$TARGET" config user.email "factory-bootstrap@factory.invalid"
 git -C "$TARGET" add .

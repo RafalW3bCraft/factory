@@ -35,6 +35,9 @@ echo "=========================================================="
 echo ""
 echo "[1/7] Checking System Tooling …"
 command -v git >/dev/null 2>&1 && ok "git is available ($(git --version))" || fail "git not found"
+if ! command -v less >/dev/null 2>&1; then
+    git config core.pager cat 2>/dev/null || true
+fi
 command -v uv >/dev/null 2>&1 && ok "uv is available ($(uv --version))" || fail "uv not found"
 
 OPENCODE_BIN="$(command -v opencode 2>/dev/null || true)"

@@ -29,34 +29,38 @@ silently.
 
 ### 3. Static Application Security Testing (SAST) & cybersec auditing
 Conduct an adversarial static review of the codebase for cybersecurity flaws:
-- **Injection flaws:** Check for SQL injection, OS command injection, LDAP
-  injection, eval/template injection, and unescaped HTML/DOM injection (XSS).
-- **Access control & auth:** Verify that permissions are enforced server-side
-  for every endpoint/function; look for Insecure Direct Object References (IDOR),
-  privilege escalation bugs, and missing authentication checks.
-- **Data protection & crypto:** Audit encryption algorithms (no MD5/SHA1 for
-  passwords; use bcrypt/argon2/PBKDF2), verify random number generators (CSPRNG),
-  check for plaintext storage of sensitive fields.
-- **Resource safety:** Look for unhandled resource leaks (unclosed sockets, file
-  handles, database connections), memory leaks, and unbounded collection growths.
-- **Error handling & information leakage:** Detect caught exceptions that swallow
-  critical errors silently or print raw memory/system internals to callers.
-- **Secret scanning:** Verify no API keys, tokens, credentials, or private keys
-  are hardcoded in code, comments, or committed configs.
+- **Injection flaws (SQLi, command injection, XSS, template injection):**
+  - Verify all SQL queries use parameterized queries (prepared statements).
+  - Check subprocess calls for shell string interpolation (`shell=True` or shell chaining).
+  - Audit templates and HTML builders for missing context-aware escaping.
+- **Access control & authentication auditing (IDOR, Broken Object Level Auth):**
+  - Verify authorization is enforced server-side for every endpoint/function.
+  - Trace object identifier lookups to verify tenant/user ownership checks.
+  - Check for hardcoded credentials, bypassable middleware, or missing token validation.
+- **Data protection & cryptography auditing:**
+  - Audit password hashing algorithms (enforce Argon2id, bcrypt, or PBKDF2; reject MD5/SHA1).
+  - Verify random number generation uses cryptographic sources (CSPRNG, `secrets`, `/dev/urandom`).
+  - Check for plaintext storage or transmission of sensitive tokens and PII.
+- **Resource leaks & concurrency safety:**
+  - Audit for unclosed file handles, database connections, unpooled sockets, and unbounded caches.
+  - Check for race conditions in shared mutable state, missing locks, or unsafe multithreaded operations.
+- **Silent failure & error suppression detection:**
+  - Detect caught exceptions that swallow errors without logging or propagate corrupt default states.
+  - Ensure error responses do not leak internal system paths, memory pointers, or stack traces.
+- **Secret scanning:**
+  - Verify no API keys, private keys, bearer tokens, or database passwords exist in code or git history.
 
-### 4. Digital code forensics & root-cause tracking
+### 4. Digital code forensics & execution tracing
 - When analyzing defects, regressions, or suspicious behavior:
-  - Trace code execution paths from entry points to the failure site.
-  - Inspect git diffs (`git diff <prev_rev>..<curr_rev>`) to determine exactly
-    which lines introduced the flaw.
-  - Uncover logic inversions, off-by-one boundary bugs, and race condition windows.
-  - Document the exact sequence of state transitions leading to the failure.
+  - Perform taint analysis: trace untrusted input from source entry points through data transformations to sensitive sinks.
+  - Inspect git diffs (`git diff <prev_rev>..<curr_rev>`) to isolate the exact commit and lines introducing flaws.
+  - Uncover subtle logic inversions, off-by-one boundary bugs, and race condition windows.
+  - Document the exact call trace and state transitions leading to the failure.
 
 ### 5. Specification-based completeness review
 Beyond existing tests, re-read the full specification:
 - Identify unexercised boundary conditions, concurrent edge cases, and error branches.
-- Verify whether the implementation matches both explicit requirements and
-  implicit architectural invariants.
+- Verify whether the implementation satisfies both explicit requirements and implicit architectural invariants.
 
 ### 6. Acceptance criteria
 Accept the revision ONLY when:
