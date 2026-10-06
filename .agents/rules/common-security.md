@@ -1,3 +1,6 @@
+---
+trigger: always_on
+---
 # Security Guidelines
 
 ## Mandatory Security Checks

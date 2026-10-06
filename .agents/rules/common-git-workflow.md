@@ -1,3 +1,7 @@
+---
+trigger: model_decision
+description: Git branching conventions and Conventional Commits format guidelines.
+---
 # Git Workflow
 
 ## Commit Message Format

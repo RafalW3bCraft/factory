@@ -1,3 +1,7 @@
+---
+trigger: model_decision
+description: Testing standards, minimum 80% coverage requirements, and test structure.
+---
 # Testing Requirements
 
 ## Minimum Test Coverage: 80%

@@ -1,3 +1,7 @@
+---
+trigger: model_decision
+description: Core coding standards, immutability, formatting, and naming conventions.
+---
 # Coding Style
 
 ## Immutability (CRITICAL)

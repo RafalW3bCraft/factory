@@ -1,3 +1,7 @@
+---
+trigger: model_decision
+description: Code review standards, severity classifications, and review checklists.
+---
 # Code Review Standards
 
 ## Purpose

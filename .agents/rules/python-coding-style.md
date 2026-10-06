@@ -1,5 +1,6 @@
 ---
-paths:
+trigger: glob
+globs:
   - "**/*.py"
   - "**/*.pyi"
 ---

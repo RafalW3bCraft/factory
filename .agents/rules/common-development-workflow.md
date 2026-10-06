@@ -1,3 +1,7 @@
+---
+trigger: model_decision
+description: End-to-end development workflow from planning to merge and release.
+---
 # Development Workflow
 
 > This file extends [common/git-workflow.md](common-git-workflow.md) with the full feature development process that happens before git operations.
