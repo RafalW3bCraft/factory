@@ -1,0 +1,25 @@
+# agent_config.example.yaml — Band SDK External Agent Configuration
+#
+# Instructions:
+# 1. In Band Desktop, create 4 external agents: Foreman, Smith, Inspector, Stresser.
+# 2. Copy this file to agent_config.yaml:
+#      cp agent_config.example.yaml agent_config.yaml && chmod 600 agent_config.yaml
+# 3. Paste each agent's Agent ID and API Key below.
+#
+# NOTE: Never commit agent_config.yaml to version control!
+
+foreman:
+  agent_id: "YOUR_FOREMAN_AGENT_ID"
+  api_key: "YOUR_FOREMAN_API_KEY"
+
+smith:
+  agent_id: "YOUR_SMITH_AGENT_ID"
+  api_key: "YOUR_SMITH_API_KEY"
+
+inspector:
+  agent_id: "YOUR_INSPECTOR_AGENT_ID"
+  api_key: "YOUR_INSPECTOR_API_KEY"
+
+stresser:
+  agent_id: "YOUR_STRESSER_AGENT_ID"
+  api_key: "YOUR_STRESSER_API_KEY"

@@ -22,7 +22,6 @@ import argparse
 import re
 import sys
 from dataclasses import dataclass, field
-from typing import Optional
 
 # Tunable thresholds for evaluation heuristics
 WALL_OF_TEXT_WORDS = 200
@@ -37,7 +36,7 @@ class AxisScore:
     name: str
     score: int
     evidence: list[str] = field(default_factory=list)
-    improvement: Optional[str] = None
+    improvement: str | None = None
 
 
 def count_words(text: str) -> int:
@@ -242,7 +241,7 @@ def check_actionability(text: str) -> AxisScore:
     return result
 
 
-def check_conciseness(text: str, task: Optional[str] = None) -> AxisScore:
+def check_conciseness(text: str, task: str | None = None) -> AxisScore:
     """Check for redundancy, filler, information density."""
     evidence = []
     score = 5
@@ -289,7 +288,7 @@ def check_conciseness(text: str, task: Optional[str] = None) -> AxisScore:
     return result
 
 
-def evaluate(task: Optional[str], output: str) -> list[AxisScore]:
+def evaluate(task: str | None, output: str) -> list[AxisScore]:
     """Run all 5 axis checks and return scored results."""
     return [
         check_accuracy(output),
@@ -361,7 +360,7 @@ def format_report(scores: list[AxisScore]) -> str:
     return "\n".join(lines)
 
 
-def _read_file_or_text(path: Optional[str], *, required: bool = False) -> Optional[str]:
+def _read_file_or_text(path: str | None, *, required: bool = False) -> str | None:
     """Read a file path or return inline text when allowed."""
     if path is None:
         return None
@@ -375,7 +374,7 @@ def _read_file_or_text(path: Optional[str], *, required: bool = False) -> Option
         return path
 
 
-def _read_input(args: argparse.Namespace) -> tuple[Optional[str], str]:
+def _read_input(args: argparse.Namespace) -> tuple[str | None, str]:
     """Read task and output for interactive, file, or pipe mode."""
     if args.interactive:
         task = input("Task description: ").strip()

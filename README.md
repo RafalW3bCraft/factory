@@ -1,94 +1,147 @@
-# Pocketful Dark Factory
+# Dark Factory — Autonomous Multi-Agent Software & Cybersecurity Engineering
 
-**Track:** pocketful · **Event:** WeAreDevelopers × BAND Dark Factory
+Dark Factory is an autonomous multi-agent software engineering, cybersecurity assessment, and digital forensics system powered by **Band SDK**, **OpenCode**, and the **Everything Claude Code (ECC)** methodology.
 
-Pocketful is a wallet and peer-to-peer payments service built by a four-seat
-software factory. The factory uses Foreman, Smith, Inspector, and Stresser to
-plan, implement, independently verify, and adversarially test work.
+Four specialized LLM seats collaborate within an isolated workspace repository:
+- **@Foreman**: System Architecture, Task Planning, STRIDE Threat Modeling & Multi-Agent Coordination
+- **@Smith**: Full-Stack Construction, Secure Coding by Design, Test-Driven Development (TDD) & Defect Remediation
+- **@Inspector**: Independent Review, Static Application Security Testing (SAST), Code Forensics & OWASP Top 10 Auditing
+- **@Stresser**: Dynamic Application Security Testing (DAST), Adversarial Fuzzing, Concurrency & Load Stress, Crash Forensics
 
-## Project status
+---
 
-| Stage | Scope | Status | Evidence |
-|---|---|---|---|
-| 1 | Ledger, transfers, requests, splits | Shipped | 147/147 official harness checks passed |
-| 2 | Browser UI and authorizations | Not included in `main` | Work was in progress and uncommitted at export |
-| 3 | Statements and corrections | Not reached | Not started |
-| 4 | Refunds and batch operations | Not reached | Not started |
+## Architecture & Seat Overview
 
-The room log records **four human messages**, not one: the original dispatch,
-a duplicate dispatch after a timeout, a “continue” message after a long stall,
-and a later steering note. The run also had three OpenCode timeouts. These
-limits are disclosed rather than described as fully autonomous. See
-[`docs/FACT_SHEET.md`](docs/FACT_SHEET.md) for the evidence-backed timeline.
-
-## Run Stage 1
-
-The API uses only the Python 3 standard library. From the repository root:
-
-```sh
-python3 stage-1/main.py
+```
+                      ┌────────────────────────────┐
+                      │    Operator / Human        │
+                      └─────────────┬──────────────┘
+                                    │ Single Dispatch (No mid-run prompts)
+                                    ▼
+                      ┌────────────────────────────┐
+                      │         @Foreman           │
+                      │  (Architecture & Planner)  │
+                      └──────┬──────────────▲──────┘
+                             │              │
+        ┌────────────────────┴──────┐       │ Verified Final Report
+        │ Self-contained Handoff    │       │
+        ▼                           ▼       │
+┌───────────────┐           ┌───────────────┴───────────────┐
+│    @Smith     │           │          Dual-Gate            │
+│   (Builder)   │──────────►│        Verification           │
+└───────────────┘ Revision  └───────┬───────────────▲───────┘
+                                    │               │
+                            Static  ▼               │ Dynamic
+                       ┌────────────────┐   ┌───────────────┐
+                       │   @Inspector   │   │   @Stresser   │
+                       │ (Review & SAST)│   │(DAST & Fuzzing│
+                       └────────────────┘   └───────────────┘
 ```
 
-It listens on `0.0.0.0:8080` by default. In another terminal, check health:
+---
 
-```sh
-curl -i http://127.0.0.1:8080/health
+## Directory Layout
+
+```
+factory/
+├── start-factory.sh          Starts OpenCode server + launches the 4 supervised seats
+├── stop-factory.sh           Gracefully terminates OpenCode and seat processes
+├── preflight.sh              Comprehensive diagnostics & system readiness validation
+├── bootstrap-repo.sh         Bootstraps a fresh workspace git repository
+├── render-dispatch.sh        CLI to render Foreman mission briefs with parameter tokens
+├── mandates/                 Operating seat instructions with Harness and Model headers
+├── dispatch/                 Mission templates for engineering, security, and forensics
+├── src/                      Core runner (run_seat.py), linter, analyzer, and dispatch engine
+├── tests/                    Pytest automated test suite
+├── docs/                     Architecture decisions and operational guides
+├── workspace/                Default local workspace git repository
+└── .agents/                  ECC skills, agents, rules, and workflows (affaan-m)
 ```
 
-Reset the in-memory service state with a fixture:
+---
 
-```sh
-curl -i -X POST http://127.0.0.1:8080/_test/reset \
-  -H 'Content-Type: application/json' \
-  -d '{"currency":"EUR","minor_units":2,"users":[]}'
+## Prerequisites & Setup
+
+### 1. Requirements
+- Python 3.12+ and `uv`
+- OpenCode (`~/.opencode/bin/opencode` or on PATH)
+- BAND CLI / BAND Desktop
+- Featherless AI API key (for OpenCode provider)
+
+### 2. Quick Setup
+
+```bash
+# 1. Install / sync dependencies into virtual environment
+uv sync
+
+# 2. Make shell scripts executable
+chmod +x ./*.sh
+
+# 3. Configure local environment
+cp .env.example .env
+chmod 600 .env
+# Set FEATHERLESS_API_KEY and RESULT_REPO in .env
+
+# 4. Configure Band credentials
+cp agent_config.example.yaml agent_config.yaml
+chmod 600 agent_config.yaml
+# Populate external agent IDs and keys generated in Band Desktop
 ```
 
-A successful reset returns **204 No Content**. The state is in memory and is
-cleared when the process stops. To use another port, set `PORT` before start,
-for example `PORT=9000 python3 stage-1/main.py`.
+---
 
-### Docker
+## Verification & Diagnostics
 
-Docker is optional for a local smoke test. To build and run the isolated image:
+Run the integrated preflight diagnostics to verify tooling, Python virtualenv, credentials, models, and test suite:
 
-```sh
-docker build -t pocketful-s1 ./stage-1
-docker run --rm --network none --cpus=2 --memory=2048m \
-  -p 8080:8080 --name pocketful-s1 pocketful-s1
+```bash
+./preflight.sh
 ```
 
-The `--network none` option is appropriate for the containerized test run; omit
-it if you need to reach the container from a different network namespace.
-Stop a detached container with `docker stop pocketful-s1`.
+Run tests directly:
 
-## Test harness
-
-The WeAreDevelopers/BAND kickoff harness is not bundled in this repository.
-Install it from the event's kickoff package, then run these commands from its
-environment:
-
-```sh
-python -m harness check . --track pocketful
-python -m harness run --track pocketful --repo . --all --mode isolated
+```bash
+uv run pytest -v
 ```
 
-The isolated run requires a working Docker daemon. The 147/147 result in this
-README is the recorded submission evidence; it is not a claim that the
-external harness is installed in every checkout.
+---
 
-## Repository map
+## Launching a Mission
 
-| Path | Purpose |
-|---|---|
-| `stage-1/` | Shipped API, Dockerfile, and run instructions |
-| `FACTORY.md` | Factory design, setup, measured results, and limitations |
-| `mandates/` | Operating instructions for the four seats |
-| `factory/factory/` | Source copy of the factory scripts and runbook |
-| `room.json` | Full room export used as collaboration evidence |
-| `docs/FACT_SHEET.md` | Audited source of truth for submission claims |
-| `submission-assets/` | Form copy, slides, video, scripts, and audit material |
+### 1. Bootstrap Target Repository
+```bash
+./bootstrap-repo.sh /home/sp3ct0r/factory/workspace
+```
 
-For the Stage 1-specific commands and API behavior, see
-[`stage-1/RUN.md`](stage-1/RUN.md). For running the multi-agent factory, start
-with [`factory/README.md`](factory/README.md); that workflow
-requires separately configured BAND, OpenCode, Featherless, and harness tools.
+### 2. Render Mission Dispatch
+Choose a mission template or provide a custom task description:
+
+```bash
+# Full-Stack Engineering Mission
+./render-dispatch.sh engineering --task "Build secure REST API with JWT auth and rate limiting"
+
+# Cybersecurity Audit & Hardening Mission
+./render-dispatch.sh security    --task "Perform OWASP Top 10 security audit on api/ and remediate findings"
+
+# Crash Analysis & Digital Forensics Mission
+./render-dispatch.sh forensics   --task "Isolate root cause of worker deadlocks under load and fix"
+```
+
+### 3. Start the Factory
+```bash
+RESULT_REPO=/home/sp3ct0r/factory/workspace ./start-factory.sh
+```
+
+Paste the rendered dispatch message into the lead room for `@Foreman`. The factory will execute autonomously in dark-factory mode until Foreman delivers the verified final report.
+
+### 4. Stop the Factory
+```bash
+./stop-factory.sh
+```
+
+### 5. Session Post-Mortem & Room Analysis
+Analyze agent teamwork, mention flows, caught defects, and commit history from the exported room log:
+
+```bash
+python3 src/analyze_room.py room.json --repo /home/sp3ct0r/factory/workspace
+```

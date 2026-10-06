@@ -1,4 +1,4 @@
-# Secrets — keep outside any repo that is pushed
+# Secrets — keep strictly outside version control
 .env
 *.env
 agent_config.yaml
@@ -6,29 +6,25 @@ opencode.json
 
 # Python
 __pycache__/
-*.py[oc]
+*.py[cod]
+*$py.class
 .venv/
 *.egg-info/
-.ruff_cache/
-.mypy_cache/
+dist/
+build/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Node / JS
-# NOTE: dist/ and build/ are deliberately NOT ignored. A stage whose Dockerfile
-# copies a committed build output would otherwise build on the builder's machine
-# but fail from a fresh clone (= a service that does not start = score zero).
 node_modules/
 
-# Factory run logs (events.log is copied explicitly by package-submission.sh)
-factory/logs/
+# Factory logs & outputs
+logs/
 *.log
+dispatch/rendered/
+workspace/
 
-# Band room recording — keep off git (large binary, submit separately)
-*.mkv
-
-# Local check outputs
-checks/
-
-# OS
+# OS artifacts
 .DS_Store
 Thumbs.db

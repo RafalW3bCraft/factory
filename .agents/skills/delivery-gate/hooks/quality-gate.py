@@ -9,14 +9,13 @@ Configure: Add to settings.json hooks.Stop
 """
 from __future__ import annotations
 
-import sys
+import datetime
+import json
+import logging
 import os
 import re
-import json
-import datetime
 import shutil
-import logging
-from typing import Optional
+import sys
 
 # ---- Configuration ----
 RATIONALIZE = [
@@ -49,7 +48,7 @@ logging.basicConfig(
 log = logging.getLogger('quality-gate')
 
 
-def get_project_memory_dir() -> Optional[str]:
+def get_project_memory_dir() -> str | None:
     """Find the current project's memory directory.
 
     Returns None if no memory directory exists for this project.
@@ -63,7 +62,7 @@ def get_project_memory_dir() -> Optional[str]:
     return None
 
 
-def check_disk() -> Optional[int]:
+def check_disk() -> int | None:
     """Check free space on the disk containing the home directory.
 
     Works cross-platform: macOS, Linux, Windows.
@@ -139,7 +138,7 @@ def main() -> None:
         if isinstance(payload, dict) and 'transcript_path' in payload:
             tp = os.path.expanduser(payload['transcript_path'])
             if os.path.exists(tp):
-                with open(tp, 'r', encoding='utf-8') as f:
+                with open(tp, encoding='utf-8') as f:
                     transcript = f.read()
             else:
                 log.warning('transcript_path %s not found, falling back to raw stdin', tp)

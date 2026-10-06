@@ -16,23 +16,22 @@ Commands:
 """
 
 import argparse
-import json
 import hashlib
+import ipaddress
+import json
 import os
-import subprocess
-import sys
 import re
 import shutil
-import ipaddress
 import socket
+import subprocess
+import sys
+import tempfile
 import urllib.parse
 import urllib.request
-import tempfile
-from contextlib import contextmanager
-from pathlib import Path
-from datetime import datetime, timedelta, timezone
 from collections import defaultdict
-from typing import Optional
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
 
 if sys.platform == "win32":
     try:
@@ -249,7 +248,7 @@ def _yaml_quote(value: str) -> str:
 # Project Detection (Python equivalent of detect-project.sh)
 # ─────────────────────────────────────────────
 
-def _git_repo_root(cwd: Optional[str] = None) -> Optional[str]:
+def _git_repo_root(cwd: str | None = None) -> str | None:
     args = ["git"]
     if cwd:
         args.extend(["-C", cwd])
@@ -451,7 +450,7 @@ def _update_registry(pid: str, pname: str, proot: str, premote: str) -> None:
         # record has the same shape regardless of which path (Python CLI or
         # shell hook) last wrote it. "created_at" is preserved from any
         # existing entry; only "last_seen" advances on update.
-        now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+        now = datetime.now(UTC).isoformat().replace("+00:00", "Z")
         existing = registry.get(pid, {})
         # A malformed registry (e.g. a non-dict value for this id) must not
         # crash the update: fall back to an empty dict so the corrupt entry is
@@ -783,7 +782,7 @@ def cmd_status(args) -> int:
         if obs_file and Path(obs_file).exists():
             with open(obs_file, encoding="utf-8") as f:
                 obs_count = sum(1 for _ in f)
-            print(f"-" * 60)
+            print("-" * 60)
             print(f"  Observations: {obs_count} events logged")
             print(f"  File: {obs_file}")
 
@@ -1059,7 +1058,7 @@ def cmd_import(args) -> int:
         except OSError:
             pass  # best-effort removal
 
-    print(f"\nImport complete!")
+    print("\nImport complete!")
     print(f"   Scope: {target_scope}")
     print(f"   Added: {len(to_add)}")
     print(f"   Updated: {len(to_update)}")
@@ -1361,7 +1360,7 @@ def cmd_evolve(args) -> int:
             print(f"   Avg confidence: {cand['avg_confidence']:.0%}")
             print(f"   Domains: {', '.join(cand['domains'])}")
             print(f"   Scopes: {scope_info}")
-            print(f"   Instincts:")
+            print("   Instincts:")
             for inst in cand['instincts'][:3]:
                 print(f"     - {inst.get('id')} [{inst.get('scope', '?')}]")
             print()
@@ -1478,17 +1477,17 @@ def _show_promotion_candidates(project: dict) -> None:
             })
 
     if candidates:
-        print(f"\n## PROMOTION CANDIDATES (project -> global)\n")
+        print("\n## PROMOTION CANDIDATES (project -> global)\n")
         print(f"  These instincts appear in {PROMOTE_MIN_PROJECTS}+ projects with high confidence:\n")
         for cand in candidates[:10]:
             proj_names = ', '.join(pname for _, pname in cand['projects'])
             print(f"  * {cand['id']} (avg: {cand['avg_confidence']:.0%})")
             print(f"    Found in: {proj_names}")
             print()
-        print(f"  Run `instinct-cli.py promote` to promote these to global scope.\n")
+        print("  Run `instinct-cli.py promote` to promote these to global scope.\n")
 
 
-def _frontmatter_scalar(lines: list[str], key: str) -> Optional[str]:
+def _frontmatter_scalar(lines: list[str], key: str) -> str | None:
     """Extract a simple scalar value from frontmatter lines."""
     for line in lines:
         if ':' not in line:
@@ -1630,7 +1629,7 @@ def _promote_specific(project: dict, instinct_id: str, force: bool, dry_run: boo
         return 0
 
     if not force:
-        response = input(f"\nPromote to global? [y/N] ")
+        response = input("\nPromote to global? [y/N] ")
         if response.lower() != 'y':
             print("Cancelled.")
             return 0
@@ -1643,9 +1642,9 @@ def _promote_specific(project: dict, instinct_id: str, force: bool, dry_run: boo
     output_content += f"confidence: {target.get('confidence', 0.5)}\n"
     output_content += f"domain: {target.get('domain', 'general')}\n"
     output_content += f"source: {target.get('source', 'promoted')}\n"
-    output_content += f"scope: global\n"
+    output_content += "scope: global\n"
     output_content += f"promoted_from: {project['id']}\n"
-    output_content += f"promoted_date: {datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')}\n"
+    output_content += f"promoted_date: {datetime.now(UTC).isoformat().replace('+00:00', 'Z')}\n"
     output_content += "---\n\n"
     output_content += target.get('content', '') + "\n"
 
@@ -1693,7 +1692,7 @@ def _promote_auto(project: dict, force: bool, dry_run: bool) -> int:
         print(f"    Found in {len(cand['entries'])} projects: {proj_names}")
 
     if dry_run:
-        print(f"\n[DRY RUN] No changes made.")
+        print("\n[DRY RUN] No changes made.")
         return 0
 
     if not force:
@@ -1718,9 +1717,9 @@ def _promote_auto(project: dict, force: bool, dry_run: bool) -> int:
         output_content += f"trigger: {_yaml_quote(inst.get('trigger', 'unknown'))}\n"
         output_content += f"confidence: {cand['avg_confidence']}\n"
         output_content += f"domain: {inst.get('domain', 'general')}\n"
-        output_content += f"source: auto-promoted\n"
-        output_content += f"scope: global\n"
-        output_content += f"promoted_date: {datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z')}\n"
+        output_content += "source: auto-promoted\n"
+        output_content += "scope: global\n"
+        output_content += f"promoted_date: {datetime.now(UTC).isoformat().replace('+00:00', 'Z')}\n"
         output_content += f"seen_in_projects: {len(cand['entries'])}\n"
         output_content += "---\n\n"
         output_content += inst.get('content', '') + "\n"
@@ -1786,7 +1785,7 @@ def cmd_projects(args) -> int:
     # Global stats
     global_personal = len(_load_instincts_from_dir(GLOBAL_PERSONAL_DIR, "personal", "global"))
     global_inherited = len(_load_instincts_from_dir(GLOBAL_INHERITED_DIR, "inherited", "global"))
-    print(f"  GLOBAL")
+    print("  GLOBAL")
     print(f"    Instincts: {global_personal} personal, {global_inherited} inherited")
 
     print(f"\n{'='*60}\n")
@@ -1918,7 +1917,7 @@ def _cmd_projects_merge(args) -> int:
 
     registry.pop(from_id, None)
     destination = registry.get(into_id, {})
-    destination["last_seen"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    destination["last_seen"] = datetime.now(UTC).isoformat().replace("+00:00", "Z")
     registry[into_id] = destination
     _write_registry(registry)
     _remove_project_storage(from_id)
@@ -1991,9 +1990,9 @@ def _generate_evolved(skill_candidates: list, workflow_instincts: list, agent_ca
         content += f"# {name}\n\n"
         content += f"Evolved from {len(cand['instincts'])} instincts "
         content += f"(avg confidence: {cand['avg_confidence']:.0%})\n\n"
-        content += f"## When to Apply\n\n"
+        content += "## When to Apply\n\n"
         content += f"Trigger: {trigger}\n\n"
-        content += f"## Actions\n\n"
+        content += "## Actions\n\n"
         for inst in cand['instincts']:
             inst_content = inst.get('content', '')
             action_match = re.search(r'## Action\s*\n\s*(.+?)(?:\n\n|\n##|$)', inst_content, re.DOTALL)
@@ -2049,7 +2048,7 @@ def _generate_evolved(skill_candidates: list, workflow_instincts: list, agent_ca
         content += f"Evolved from {len(cand['instincts'])} instincts "
         content += f"(avg confidence: {cand['avg_confidence']:.0%})\n"
         content += f"Domains: {domains}\n\n"
-        content += f"## Source Instincts\n\n"
+        content += "## Source Instincts\n\n"
         for iid in instinct_ids:
             content += f"- {iid}\n"
 
@@ -2078,7 +2077,7 @@ def _collect_pending_dirs() -> list[Path]:
     return dirs
 
 
-def _parse_created_date(file_path: Path) -> Optional[datetime]:
+def _parse_created_date(file_path: Path) -> datetime | None:
     """Parse the 'created' date from YAML frontmatter of an instinct file.
 
     Falls back to file mtime if no 'created' field is found.
@@ -2109,7 +2108,7 @@ def _parse_created_date(file_path: Path) -> Optional[datetime]:
                     try:
                         dt = datetime.strptime(date_str, fmt)
                         if dt.tzinfo is None:
-                            dt = dt.replace(tzinfo=timezone.utc)
+                            dt = dt.replace(tzinfo=UTC)
                         return dt
                     except ValueError:
                         continue
@@ -2117,7 +2116,7 @@ def _parse_created_date(file_path: Path) -> Optional[datetime]:
     # Fallback: file modification time
     try:
         mtime = file_path.stat().st_mtime
-        return datetime.fromtimestamp(mtime, tz=timezone.utc)
+        return datetime.fromtimestamp(mtime, tz=UTC)
     except OSError:
         return None
 
@@ -2127,7 +2126,7 @@ def _collect_pending_instincts() -> list[dict]:
 
     Each dict contains: path, created, age_days, name, parent_dir.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     results = []
     for pending_dir in _collect_pending_dirs():
         files = [

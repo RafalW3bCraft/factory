@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from scripts.grader import ComplianceResult
@@ -24,7 +24,7 @@ def generate_report(
         results: List of (scenario_level_name, ComplianceResult, observations) tuples.
         scenarios: Original scenario definitions with prompts.
     """
-    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     overall = _overall_compliance(results)
     threshold = spec.threshold_promote_to_hook
 
@@ -36,8 +36,8 @@ def generate_report(
     # Summary
     lines.append("## Summary")
     lines.append("")
-    lines.append(f"| Metric | Value |")
-    lines.append(f"|--------|-------|")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
     lines.append(f"| Skill | `{skill_path}` |")
     lines.append(f"| Spec | {spec.id} |")
     lines.append(f"| Scenarios | {len(results)} |")
@@ -49,7 +49,7 @@ def generate_report(
         step_names = ", ".join(promote_steps)
         lines.append(f"| Recommendation | **Promote {step_names} to hooks** |")
     else:
-        lines.append(f"| Recommendation | All steps above threshold — no hook promotion needed |")
+        lines.append("| Recommendation | All steps above threshold — no hook promotion needed |")
     lines.append("")
 
     # Expected Behavioral Sequence

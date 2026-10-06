@@ -6,11 +6,11 @@ database, all writers honoring schema guards, and callers checking permission.
 Unknown outcomes stay held; receipt evidence is supplied by a trusted caller.
 """
 
-from contextlib import contextmanager
 import hashlib
-from pathlib import Path
 import secrets
 import sqlite3
+from contextlib import contextmanager
+from pathlib import Path
 
 
 class ClaimError(Exception):
