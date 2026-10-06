@@ -121,6 +121,15 @@ class ShellScriptsIntegrationTests(unittest.TestCase):
         self.assertEqual(res.returncode, 0)
         self.assertIn("Factory shutdown complete", res.stdout)
 
+    def test_generate_sbom_script(self) -> None:
+        sbom_script = FACTORY_ROOT / "scripts" / "generate_sbom.py"
+        with TemporaryDirectory() as tmpdir:
+            out_file = Path(tmpdir) / "test_sbom.json"
+            res = subprocess.run(["python3", str(sbom_script), str(out_file)], capture_output=True, text=True)
+            self.assertEqual(res.returncode, 0)
+            self.assertIn("Generated CycloneDX SBOM", res.stdout)
+            self.assertTrue(out_file.is_file())
+
 
 if __name__ == "__main__":
     unittest.main()
