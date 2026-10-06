@@ -144,8 +144,17 @@ async def run(seat: str, model_id: str | None) -> None:
 
         client_factory = auth_client_factory
 
-    base_url = os.environ.get("OPENCODE_BASE_URL", "http://127.0.0.1:4096")
-    turn_timeout_s = int(os.environ.get("TURN_TIMEOUT_S", "900"))
+    base_url = os.environ.get("OPENCODE_BASE_URL", "http://127.0.0.1:4096").strip()
+    if not (base_url.startswith("http://") or base_url.startswith("https://")):
+        die(f"Invalid OPENCODE_BASE_URL: '{base_url}'. Must begin with http:// or https://")
+
+    raw_timeout = os.environ.get("TURN_TIMEOUT_S", "900").strip()
+    try:
+        turn_timeout_s = int(raw_timeout)
+        if turn_timeout_s <= 0:
+            raise ValueError
+    except ValueError:
+        die(f"Invalid TURN_TIMEOUT_S: '{raw_timeout}'. Must be a positive integer.")
 
     config = OpencodeAdapterConfig(
         base_url=base_url,
@@ -193,6 +202,10 @@ def main() -> None:
     except KeyboardInterrupt:
         print(f"\n[run_seat] Seat '{seat}' stopped cleanly (SIGINT).")
         sys.exit(0)
+    except ConnectionError as exc:
+        die(f"Seat '{seat}' failed to connect to OpenCode server or Band platform: {exc}")
+    except TimeoutError as exc:
+        die(f"Seat '{seat}' timed out during execution: {exc}")
     except Exception as exc:
         import traceback
 

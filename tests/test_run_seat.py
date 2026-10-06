@@ -124,6 +124,29 @@ class RunSeatExecutionTests(unittest.TestCase):
         self.assertIn("Authorization", client._client.headers)
         self.assertTrue(client._client.headers["Authorization"].startswith("Basic "))
 
+    def test_run_invalid_base_url_fails(self) -> None:
+        env = {
+            "RESULT_REPO": str(self.repo_dir),
+            "BAND_AGENT_ID": "agent_test",
+            "BAND_API_KEY": "key_test",
+            "OPENCODE_BASE_URL": "ftp://invalid-url:4096",
+        }
+        with patch.dict(os.environ, env):
+            with self.assertRaises(SystemExit):
+                asyncio.run(run("foreman", None))
+
+    def test_run_invalid_turn_timeout_fails(self) -> None:
+        for bad_timeout in ("not-a-number", "-10", "0"):
+            env = {
+                "RESULT_REPO": str(self.repo_dir),
+                "BAND_AGENT_ID": "agent_test",
+                "BAND_API_KEY": "key_test",
+                "TURN_TIMEOUT_S": bad_timeout,
+            }
+            with patch.dict(os.environ, env):
+                with self.assertRaises(SystemExit):
+                    asyncio.run(run("foreman", None))
+
 
 class RunSeatCLITests(unittest.TestCase):
     def test_cli_help(self) -> None:
@@ -161,6 +184,24 @@ class RunSeatCLITests(unittest.TestCase):
                 main()
             self.assertEqual(ctx.exception.code, 0)
         self.assertIn("stopped cleanly", out.getvalue())
+
+    @patch("factory.run_seat.run", side_effect=ConnectionError("Server unreachable"))
+    def test_cli_connection_error_handling(self, mock_run: MagicMock) -> None:
+        err = io.StringIO()
+        with redirect_stderr(err), patch("sys.argv", ["run_seat.py", "foreman"]):
+            with self.assertRaises(SystemExit) as ctx:
+                main()
+            self.assertEqual(ctx.exception.code, 1)
+        self.assertIn("failed to connect to OpenCode server or Band platform", err.getvalue())
+
+    @patch("factory.run_seat.run", side_effect=TimeoutError("Turn timeout expired"))
+    def test_cli_timeout_error_handling(self, mock_run: MagicMock) -> None:
+        err = io.StringIO()
+        with redirect_stderr(err), patch("sys.argv", ["run_seat.py", "foreman"]):
+            with self.assertRaises(SystemExit) as ctx:
+                main()
+            self.assertEqual(ctx.exception.code, 1)
+        self.assertIn("timed out during execution", err.getvalue())
 
     @patch("factory.run_seat.run", side_effect=RuntimeError("Test crash"))
     def test_cli_unhandled_exception(self, mock_run: MagicMock) -> None:
