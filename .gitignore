@@ -9,6 +9,9 @@ __pycache__/
 *.py[oc]
 .venv/
 *.egg-info/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
 
 # Node / JS
 # NOTE: dist/ and build/ are deliberately NOT ignored. A stage whose Dockerfile
@@ -16,9 +19,15 @@ __pycache__/
 # but fail from a fresh clone (= a service that does not start = score zero).
 node_modules/
 
-# Factory run logs (events.log/seat_models.txt are copied explicitly by
-# package-submission.sh)
+# Factory run logs (events.log is copied explicitly by package-submission.sh)
 factory/logs/
+*.log
+
+# Band room recording — keep off git (large binary, submit separately)
+*.mkv
+
+# Local check outputs
+checks/
 
 # OS
 .DS_Store

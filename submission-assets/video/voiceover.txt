@@ -1,0 +1,19 @@
+Pocketful Factory is a four-seat software factory built for a wallet and peer-to-peer payments challenge.
+
+For payments, correctness means more than a successful response. Balances must conserve funds, and malformed requests must fail safely.
+
+Foreman coordinates, Smith implements, Inspector independently verifies, and Stresser probes resilience. Defects return to Smith for a verified follow-up.
+
+This real Band room excerpt shows the review request, Inspector's acceptance, then a hardening order to Stresser. Workstation paths are masked.
+
+After that acceptance, Stresser flagged empty-body handling: an empty body returned 422 instead of the specified 400. Smith took the follow-up.
+
+Smith fixed C1 and independently found C2. This real room excerpt shows Inspector accepting the delta and Stresser reporting a clean verdict.
+
+Stage One passed 147 of 147 official checks; independent review repeated that pass. Separate private smoke suites passed 145 of 145.
+
+The run needed four human messages, included three OpenCode timeouts, and stalled for about one hour and fifty-five minutes.
+
+Stage One shipped. Stage Two was not committed to main; Stages Three and Four were not reached. This is the verified result boundary.
+
+Pocketful Factory demonstrates reviewable handoffs and adversarial testing, alongside an honest account of human input and limits.
