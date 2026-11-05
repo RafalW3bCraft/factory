@@ -104,6 +104,7 @@ class FactoryOpsDemoTests(unittest.TestCase):
             0,
         )
         self.assertFalse((paths.inspector / "src" / "inventory.py").stat().st_mode & stat.S_IWUSR)
+        self.assertEqual(git(paths.inspector, "status", "--porcelain"), "")
 
     def test_prepare_verifier_checkout_rejects_dirty_worktree_and_unknown_role(self) -> None:
         paths = create_demo(self.root / "demo", factory_root=self.factory_root)
