@@ -48,3 +48,13 @@ avoid duplicating Switch authentication, liveness, event, and reconnect logic.
 The Compose capability, egress, runtime-isolation, and legacy log-retention
 findings are intentionally not changed before the Track 01 demonstration. They
 remain follow-up security work and are not represented as remediated.
+
+## Codex and Switch documentation compatibility
+
+On the implementation host, Codex CLI native plugin support was verified and
+the official `ecc@ecc` plugin version `2.2.3` was installed from the
+`affaan-m/ECC` marketplace after inspecting its manifest. The existing
+project-local `.agents/` installation remains intact; no legacy synchronization
+script was used. The official `switch-docs` streamable-HTTP MCP server was
+registered and its configuration was inspected. Registration is not evidence
+that a Switch server, Console, Discord bridge, or agent session is running.

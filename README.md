@@ -151,6 +151,23 @@ This repository incorporates the Everything Claude Code (ECC) engineering toolki
 
 ---
 
+## FactoryOps × Switch (Hackathon 2026)
+
+FactoryOps is an opt-in, Switch-native collaboration mode for a human-governed
+engineering demonstration. It uses four native Codex agents in a connected
+Discord room, a disposable fixture repository, independent Inspector and
+Stresser gates, and a linked human approval before Foreman publishes the final
+report. It does not replace the existing Band/OpenCode runtime.
+
+Run `uv run factoryops init-demo --root /absolute/new/demo-root` to prepare a
+safe disposable fixture and role worktrees. Import
+[`switch/factoryops.template.yaml`](switch/factoryops.template.yaml) into
+Switch Console only after configuring a real Discord bridge and native Codex
+provider. The complete live procedure and evidence boundary are in
+[`docs/hackathon-2026/DEMO_RUNBOOK.md`](docs/hackathon-2026/DEMO_RUNBOOK.md).
+
+---
+
 ## Business & Operational Considerations
 
 ### Data Handling Statement

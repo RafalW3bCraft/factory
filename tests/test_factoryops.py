@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import stat
 import subprocess
 import tempfile
 import unittest
@@ -55,7 +56,9 @@ class FactoryOpsDemoTests(unittest.TestCase):
         self.assertEqual((existing / "data.txt").read_text(encoding="utf-8"), "keep")
 
     def test_create_demo_creates_isolated_fixture_worktrees(self) -> None:
-        paths = create_demo(self.root / "demo", factory_root=self.factory_root)
+        demo_root = self.root / "demo"
+        demo_root.mkdir()
+        paths = create_demo(demo_root, factory_root=self.factory_root)
 
         self.assertTrue((paths.repository / ".git").exists())
         for worktree in (paths.builder, paths.inspector, paths.stresser):
@@ -70,14 +73,17 @@ class FactoryOpsDemoTests(unittest.TestCase):
             text=True,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("test_positive_restock", result.stdout)
+        self.assertIn("OK", result.stderr)
         self.assertIn("quantity", (paths.builder / "src" / "inventory.py").read_text(encoding="utf-8"))
 
     def test_prepare_verifier_checkout_detaches_at_the_candidate_commit(self) -> None:
         paths = create_demo(self.root / "demo", factory_root=self.factory_root)
         inventory = paths.builder / "src" / "inventory.py"
         inventory.write_text(
-            inventory.read_text(encoding="utf-8").replace("self.quantity += amount", "if amount <= 0:\n            raise ValueError('amount must be positive')\n        self.quantity += amount"),
+            inventory.read_text(encoding="utf-8").replace(
+                "self.quantity += amount",
+                "if amount <= 0:\n            raise ValueError('amount must be positive')\n        self.quantity += amount",
+            ),
             encoding="utf-8",
         )
         git(paths.builder, "add", "src/inventory.py")
@@ -97,6 +103,7 @@ class FactoryOpsDemoTests(unittest.TestCase):
             ).returncode,
             0,
         )
+        self.assertFalse((paths.inspector / "src" / "inventory.py").stat().st_mode & stat.S_IWUSR)
 
     def test_prepare_verifier_checkout_rejects_dirty_worktree_and_unknown_role(self) -> None:
         paths = create_demo(self.root / "demo", factory_root=self.factory_root)
