@@ -90,3 +90,107 @@ def test_partial_required_role_configuration_is_rejected(tmp_path: Path) -> None
             seats={"inspector": "i", "stresser": "s"},
             required_seats={"smith": "smith-id"},
         )
+
+
+@pytest.mark.parametrize("pending_approval", [False, True])
+def test_expired_challenge_renews_once_and_invalidates_pending_approval(tmp_path: Path, pending_approval: bool) -> None:
+    from factory.switch_gate import GateSession
+
+    store = ledger(tmp_path)
+    store.set_candidate("a" * 40, "b" * 64)
+    for role in ("inspector", "stresser"):
+        store.record_receipt(
+            store._seal_receipt(
+                {
+                    "candidate_sha": "a" * 40,
+                    "manifest": "b" * 64,
+                    "role": role,
+                    "exit_code": 0,
+                    "backend": "container",
+                    "isolated": True,
+                    "command": ["test"],
+                    "cleanup_confirmed": True,
+                    "image": "sha256:" + "c" * 64,
+                    "output_sha256": "d" * 64,
+                    "duration_seconds": 0.01,
+                }
+            )
+        )
+    posted: list[str] = []
+    config = {
+        "server_url": "http://127.0.0.1:8080",
+        "agent_id": "observer",
+        "observer_participant_id": "observer-id",
+        "room_id": "room",
+        "required_seats": ROLES,
+        "seat_addresses": {role: "factoryops-" + role for role in ROLES},
+    }
+    gate = GateSession(store, config, "conn", posted.append)
+
+    def deliver(seq: int, sender: str, body: str) -> None:
+        gate.handle(
+            {
+                "event": "message",
+                "id": seq,
+                "data": {
+                    "type": "message",
+                    "sequence": seq,
+                    "room_id": "room",
+                    "payload": {"sender": sender, "message_id": f"m{seq}", "body": body},
+                },
+            }
+        )
+
+    with patch("factory.workflow.time.time", return_value=1000):
+        gate.handle(
+            {
+                "event": "connection_state",
+                "data": {
+                    "agent_id": "observer",
+                    "connection_id": "conn",
+                    "cursor": 0,
+                    "generation": 1,
+                    "rooms": ["room"],
+                    "scope": "single",
+                    "filter": "all",
+                },
+            }
+        )
+        nonce = store.status()["readiness"]["nonce"]
+        sequence = 0
+        if pending_approval:
+            for role in ROLES:
+                sequence += 1
+                deliver(sequence, ROLES[role], f"FACTORYOPS_READY {role} {nonce}")
+        for role in ("inspector", "stresser"):
+            sequence += 1
+            signature = store.status()["receipts"][role]["signature"]
+            deliver(sequence, ROLES[role], f"VERIFIED {role} {'a' * 40} {signature}")
+        if pending_approval:
+            assert store.status()["request"] is not None
+    with patch("factory.workflow.time.time", return_value=1121):
+        store.heartbeat()
+        sequence += 1
+        deliver(sequence, "human", "status")
+        assert store.status()["readiness"]["nonce"] != nonce
+        assert store.status()["request"] is None
+        assert store.status()["approval"] is None
+    with patch("factory.workflow.time.time", return_value=1242):
+        store.heartbeat()
+        with pytest.raises(WorkflowError, match="bounded"):
+            gate.progress()
+
+
+def test_readiness_retry_budget_survives_reconnect_and_process_restart(tmp_path: Path) -> None:
+    store = ledger(tmp_path)
+    store.set_candidate("a" * 40, "b" * 64)
+    store.connection_ready("server", 0)
+    store.begin_readiness()
+    store.begin_readiness()
+    store.connection_blocked("disconnected")
+    restarted = ledger(tmp_path)
+    restarted.connection_ready("server", 0)
+    with pytest.raises(WorkflowError, match="bounded"):
+        restarted.begin_readiness()
+    restarted.set_candidate("c" * 40, "d" * 64)
+    assert restarted.begin_readiness()["revision"] == 2

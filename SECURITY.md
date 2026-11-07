@@ -30,7 +30,10 @@ loss revoke pending authorization. Replay cursors and generation fences survive
 normal restart; gaps/takeover stop for operator recovery.
 
 Controller keys/state must reside outside all agent-writable directories under a
-separate OS principal. Mode0700 and HMAC do not isolate malicious same-UID host
+separate OS principal. The controller executable, Python environment, service
+configuration and startup scripts must also be owned by that trusted principal
+or root, with no agent write access. A private key does not protect a controller
+that imports agent-writable code. Mode0700 and HMAC do not isolate malicious same-UID host
 processes. Native provider tool permissions, credential exclusion and deployment
 separation must be verified before production use. Local fixture preparation
 uses cooperative locks/atomic writes and refuses aliases; it does not defend

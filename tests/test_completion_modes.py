@@ -106,3 +106,41 @@ def test_template_uses_explicit_modes_without_unconditional_enforced_gate() -> N
     assert "human-reviewed demonstration" in instructions
     assert "signed trusted controller artifact" in instructions
     assert "mode mismatch" in instructions.lower()
+
+
+def test_native_runtime_credentials_stay_out_of_git_and_verifier_preparation(tmp_path: Path) -> None:
+    from factory.factoryops import _run_git, create_demo, prepare_verifier_checkout
+
+    paths = create_demo(tmp_path / "runtime-fixture", factory_root=tmp_path / "source")
+    for role in ("builder", "inspector", "stresser"):
+        workspace = getattr(paths, role)
+        runtime = workspace / ".switch/agents"
+        runtime.mkdir(parents=True)
+        (runtime / "test-only.json").write_text('{"synthetic_test_credential":true}')
+        assert _run_git(workspace, "status", "--porcelain", "--untracked-files=all") == ""
+    target = paths.builder / "src/inventory.py"
+    target.write_text(target.read_text().replace("self.quantity += amount", "self.quantity += max(0, amount)"))
+    _run_git(paths.builder, "add", "src/inventory.py")
+    _run_git(paths.builder, "commit", "--no-gpg-sign", "-m", "test: disposable native runtime preparation")
+    sha = _run_git(paths.builder, "rev-parse", "HEAD")
+    for role in ("inspector", "stresser"):
+        assert prepare_verifier_checkout(paths.root, role, sha) == sha
+        assert _run_git(getattr(paths, role), "status", "--porcelain", "--untracked-files=all") == ""
+        assert (getattr(paths, role) / ".switch/agents/test-only.json").is_file()
+
+
+def test_native_directory_inputs_are_only_agent_workspace_bindings() -> None:
+    """Console resolves directory controls through agent workspace setup.
+
+    A tooling path used only inside instructions must remain an independent
+    absolute string; otherwise Console substitutes the Foreman workspace.
+    """
+    path = Path(__file__).resolve().parents[1] / "switch/factoryops.template.yaml"
+    template = yaml.safe_load(path.read_text())
+    workspace_bindings = {agent["directory"] for agent in template["agents"]}
+    for name, param in template["params"].items():
+        if param["type"] == "directory":
+            assert "{" + name + "}" in workspace_bindings
+    tooling = template["params"]["tooling_directory"]
+    assert tooling["type"] == "string"
+    assert tooling["pattern"] == "/.*"

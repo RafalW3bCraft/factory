@@ -138,6 +138,7 @@ class Ledger:
                     "verdicts": {},
                     "history": [],
                     "readiness": None,
+                    "readiness_attempts": 0,
                 }
                 self._save(connection, state)
             elif json.loads(row[0])["configuration"] != self.configuration:
@@ -193,6 +194,10 @@ class Ledger:
             raise WorkflowError("Configure all four native seats before checking readiness.")
         with self._transaction() as connection:
             state = self._read(connection)
+            attempts = state.get("readiness_attempts", 0)
+            if attempts >= 2:
+                raise WorkflowError("Native readiness expired after bounded retries; start a reconciled new workflow.")
+            state["readiness_attempts"] = attempts + 1
             readiness = {
                 "nonce": secrets.token_hex(16),
                 "revision": state["revision"],
@@ -265,6 +270,7 @@ class Ledger:
                 manifest=manifest,
                 revision=state["revision"] + 1,
                 readiness=None,
+                readiness_attempts=0,
                 receipts={},
                 attempts={},
                 verdicts={},

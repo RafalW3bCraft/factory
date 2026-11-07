@@ -460,7 +460,7 @@ def create_demo(root: Path, *, factory_root: Path = FACTORY_ROOT, completion_mod
         _write_fixture(repository)
         (repository / ".gitignore").write_text("__pycache__/\n*.py[cod]\n", encoding="utf-8")
         # Per-worktree AGENTS files are trusted bootstrap material, not fixture code.
-        (repository / ".git/info/exclude").write_text("/AGENTS.md\n", encoding="utf-8")
+        (repository / ".git/info/exclude").write_text("/AGENTS.md\n/.switch/\n", encoding="utf-8")
         _run_git(repository, "add", ".")
         _run_git(repository, "commit", "--no-gpg-sign", "-m", "chore: seed disposable inventory fixture")
         baseline_sha = _run_git(repository, "rev-parse", "HEAD")
@@ -696,9 +696,8 @@ def main(argv: list[str] | None = None) -> int:
             elif args.command == "report":
                 print(json.dumps(store.read_report(), sort_keys=True))
             else:
-                from factory.verification import verify_candidate
-
                 from factory.switch_gate import load_configuration
+                from factory.verification import verify_candidate
 
                 configuration = load_configuration(args.config)
                 if str(args.root) != configuration["demo_root"]:

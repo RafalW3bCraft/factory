@@ -34,7 +34,8 @@ params:
     type: directory
     description: Pre-created managed Foreman workspace from the disposable demo root.
   tooling_directory:
-    type: directory
+    type: string
+    pattern: "/.*"
     description: Trusted FactoryOps source checkout containing the factoryops CLI project.
   builder_directory:
     type: directory

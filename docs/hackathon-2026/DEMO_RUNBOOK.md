@@ -55,7 +55,7 @@ The operator performs `sudo`. Never install a partial/mismatched download.
 Launch with `~/.local/bin` available, using the installed desktop command:
 
 ```bash
-env -u ELECTRON_RUN_AS_NODE PATH="$HOME/.local/bin:$PATH" switch-console
+env -u ELECTRON_RUN_AS_NODE PATH="$HOME/.local/bin:$PATH" switch-console --password-store=gnome-libsecret
 ```
 
 The IDE may set `ELECTRON_RUN_AS_NODE`; remove it only for this launch as shown.
@@ -84,6 +84,24 @@ diagnostics cannot establish native seat or Discord readiness.
 
 ## 3. Connect Discord
 
+### Current failure and recovery
+
+The native server log contains `discord.errors.PrivilegedIntentsRequired`, followed
+by `Discord gateway connection failed`. This explains **Bridge is not running**
+when account linking searches the member directory. It is a Discord bot intent
+configuration failure; local `/health` can still return HTTP200.
+
+Open Discord Developer Portal → the connected bot application → Bot → Privileged
+Gateway Intents. Enable Server Members Intent and Message Content Intent, then
+Save Changes. Console0.40.1’s connection menu has no Restart item. Reconnect by restarting
+the managed local server or updating the existing connection settings in the
+Gateway; require a healthy connection before trying directory search.
+Search your Discord username/display name and select This is me; do not search
+by email or enter tokens in chat. Bot-owner portal access and the real account
+selection remain operator steps. Voice-related PyNaCl/davey warnings are not the
+cause of this text-chat connection failure.
+
+
 Follow the [official Discord procedure](https://docs.switchagents.ai/switch-rooms/deploy/messaging-apps/discord):
 
 1. Create a Discord application and bot in the Developer Portal.
@@ -108,7 +126,7 @@ credentials. Record the actual UI/provider outcome.
 ## 4. Prepare the supervised four-agent demo
 
 After automated checks and independent review, copy the tested candidate into
-`~/factoryops-demo-runtime` without credentials, state, logs or caches. Keep it
+`~/factoryops-demo-runtime-next` without credentials, state, logs or caches. Keep it
 unchanged during recording. Its base SHA plus a SHA-256 content manifest identify
 uncommitted Factory changes. Development continues in `~/factoryops-main`.
 Do not describe an unreviewed copy as a cleared runtime.
@@ -117,9 +135,9 @@ From that frozen runtime create a **new** disposable fixture outside every
 Factory checkout; the path below must not already contain data:
 
 ```bash
-cd "$HOME/factoryops-demo-runtime"
+cd "$HOME/factoryops-demo-runtime-next"
 uv sync --frozen --all-groups --python 3.12
-uv run --frozen factoryops init-demo --root "$HOME/factoryops-inventory-demo" --completion-mode supervised
+uv run --frozen factoryops init-demo --root "$HOME/factoryops-inventory-live-20261107" --completion-mode supervised
 ```
 
 The existing prepared fixture must not be overwritten. If it already exists,
@@ -130,8 +148,8 @@ in Console, select native Codex and the private Discord bridge. Set:
 
 | Template field | Local value |
 |---|---|
-| `tooling_directory` | `/home/victim/factoryops-demo-runtime` |
-| `demo_root` | `/home/victim/factoryops-inventory-demo` |
+| `tooling_directory` | `/home/victim/factoryops-demo-runtime-next` |
+| `demo_root` | `/home/victim/factoryops-inventory-live-20261107` |
 | `completion_mode` | `supervised`, matching fixture metadata and instructions |
 | `foreman_directory` | emitted `foreman` directory |
 | `builder_directory` | emitted `builder` directory |
@@ -174,8 +192,8 @@ inventory fixtures. Do not run endless autonomous missions.
 | 10 | After idle time, send a fresh addressed status request. | New genuine reply, proving continuing availability. |
 
 ```bash
-uv run --frozen factoryops prepare-verifier --root "$HOME/factoryops-inventory-demo" --role inspector --commit FULL_SHA
-uv run --frozen factoryops prepare-verifier --root "$HOME/factoryops-inventory-demo" --role stresser --commit FULL_SHA
+uv run --frozen factoryops prepare-verifier --root "$HOME/factoryops-inventory-live-20261107" --role inspector --commit FULL_SHA
+uv run --frozen factoryops prepare-verifier --root "$HOME/factoryops-inventory-live-20261107" --role stresser --commit FULL_SHA
 ```
 
 In each verifier directory independently run:
@@ -302,9 +320,13 @@ Keep Console's actual local server and managed agent controller running in the
 current login session. Record process ownership, server address, health result,
 runtime fingerprint, fixture SHA and evidence locations. Only claim "running"
 after healthy dependencies AND a fresh genuine addressed Discord response.
-To stop, use Console's supported agent/controller and local-server stop actions;
-stop a foreground optional gate with Ctrl-C. Restart through the same Console
-server/room and frozen directories. Never use broad `pkill` or the legacy stop
+Stop a native session using its controls under **Your Agents**; stop a foreground
+optional gate with Ctrl-C. Console 0.40.1's Discord connection menu does not have
+a Restart item. The current owned core service was gracefully restarted using
+its existing executable/environment while retaining PostgreSQL; that is an
+assistant-managed diagnostic action, not a documented Console button. User-facing
+local-server restart and reboot persistence remain unverified. Keep the same
+server/room and frozen directories for subsequent agent sessions. Never use broad `pkill` or the legacy stop
 script for native Switch. Reboot persistence has not been promised or tested.
 
 Capture redacted real room evidence in `LIVE_DEMO_EVIDENCE.md`, plus a short
@@ -314,3 +336,64 @@ pushes. The operator submits on the official event page. The deadline is
 **November 7, 2026 at 13:29 EST** ([official event](https://www.wemakedevs.org/hackathons/switch)).
 Prepared materials are not a submission receipt. Never replace pending records
 with fabricated messages, approvals or test results.
+
+## Current connection status and next step
+
+On November 7 the local server at `http://localhost:40735` answered `/health`
+with HTTP 200. After the bot intent repair, its current startup log confirms a
+successful Discord Gateway connection with no privileged-intent rejection.
+FactoryOps version 2 is saved under **Templates**. The creation form is waiting
+for the operator's **Link account → This is me** selection. Use a Discord username
+or server display name, not an email. Creating four agents/one room and obtaining
+their genuine replies remain pending. The tooling path is an independent text
+field; the four Directory fields are agent workspaces only.
+
+An earlier provider quota error is historical. Existing built-in-agent replies
+are visible, but a new challenge and the four-seat acceptance run are separate
+checks. Restore capacity in the same account if that error recurs. Launch Console with:
+
+```bash
+env -u ELECTRON_RUN_AS_NODE PATH="$HOME/.local/bin:$PATH" switch-console --password-store=gnome-libsecret
+```
+
+Use the desktop's secret-store unlock dialog if prompted. Never disable credential
+protection or put keyring passwords in commands. Leave Console open during the test.
+
+## Recording on this desktop
+
+The repository's `scripts/record_demo.py` captures one explicitly selected X11
+window into a private, silent MP4; it does not verify the workflow. The current
+user-owned FFmpeg7.1.5 installation was extracted from checksum-verified Parrot
+packages without system installation. Add `~/.local/bin` to PATH. An optional
+imageio-ffmpeg download was cancelled after the OS-packaged recorder worked.
+
+Use `xwininfo`, click the intended Console or Discord window and copy its Window
+id. Close credential forms and notifications before capture. From the main
+checkout run, replacing the window id with the freshly reported value:
+
+```bash
+mkdir -p "$HOME/factoryops-recordings"
+read -r -p "Paste Window id: " FACTORYOPS_WINDOW_ID
+uv run --frozen python scripts/record_demo.py --window "$FACTORYOPS_WINDOW_ID" --seconds 600 --output "$HOME/factoryops-recordings/factoryops-live.mp4"
+```
+
+Stop with Ctrl-C after completion or allow the timer to end. Existing files are
+never overwritten; choose another name for another attempt. Review the whole
+recording, trim only for presentation while retaining the original, and verify
+all claimed milestones against genuine messages/commands. Capture metadata
+always starts with `workflow_verified: false`; human review and actual workflow
+evidence determine submission suitability. The three-second setup-only capture
+in private evidence is not a hackathon demonstration.
+
+### Verified intent repair
+
+Discord's authenticated application endpoint identified the configured bot as
+`switch- buddy`, application `1568594604570451978`, and initially reported flags0.
+After the operator authorized both intents, the documented
+`PATCH /applications/@me` updated only the two limited intent flags. Discord
+returned HTTP200 and flags557056, confirming Server Members and Message Content
+enabled. Existing credentials were retained in the service; no token was output
+or added to repository files. The owned local core service was restarted using
+its existing configuration. The subsequent current-startup log confirms a successful bot Gateway connection.
+The real user link and four-seat workflow remain pending; they are not implied
+by the HTTP flag update.

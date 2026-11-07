@@ -250,3 +250,71 @@ def test_full_authorization_adapter_with_simulated_transport(tmp_path: Path, mon
         module.serve(tmp_path / "state", path)
     assert issued[0]["report"]["candidate_sha"] == sha
     assert issued[0]["report"]["approval_message_id"] == "m8"
+
+
+def test_idle_healthy_pings_do_not_consume_reconnect_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+
+    import factory.switch_gate as module
+
+    path = config(tmp_path)
+    idle_polls: list[int] = []
+    connects: list[str] = []
+
+    class Incoming(queue.Queue):
+        def get(self, block: bool = True, timeout: float | None = None):
+            try:
+                return super().get(block, 0.04)
+            except queue.Empty:
+                idle_polls.append(1)
+                if len(idle_polls) >= 5:
+                    raise KeyboardInterrupt()
+                raise
+
+    class Socket:
+        first = True
+
+        def recv(self, timeout: float) -> str:
+            if self.first:
+                self.first = False
+                return json.dumps(handshake)
+            time.sleep(0.01)
+            return json.dumps({"event": "ping", "data": {}})
+
+        def send(self, value: str) -> None:
+            pass
+
+        def close(self) -> None:
+            pass
+
+    handshake: dict = {}
+
+    @contextmanager
+    def connection(url: str, **kwargs: object):
+        connects.append(url)
+        handshake.update(state())
+        handshake["data"]["connection_id"] = parse_qs(urlsplit(url).query)["connection_id"][0]
+        yield Socket()
+
+    class Client:
+        def __init__(self, **kwargs: object):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args: object):
+            pass
+
+        def post(self, *args: object, **kwargs: object):
+            from types import SimpleNamespace
+
+            return SimpleNamespace(status_code=200)
+
+    monkeypatch.setattr(module.queue, "Queue", Incoming)
+    monkeypatch.setattr(module, "connect", connection)
+    monkeypatch.setattr(module.httpx, "Client", Client)
+    with pytest.raises(KeyboardInterrupt):
+        module.serve(tmp_path / "state", path)
+    assert len(idle_polls) == 5
+    assert len(connects) == 1

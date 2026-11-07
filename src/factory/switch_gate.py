@@ -122,7 +122,6 @@ class GateSession:
         self.connection_id = connection_id
         self.post_message = post_message
         self.ready = False
-        self.readiness_revision: int | None = None
         self.generation: int | None = None
         self.namespace = hashlib.sha256(
             (configuration["server_url"] + "\n" + configuration["agent_id"]).encode()
@@ -134,13 +133,29 @@ class GateSession:
 
     def challenge_seats(self) -> None:
         readiness = self.store.begin_readiness()
-        self.readiness_revision = readiness["revision"]
-        body = "FactoryOps readiness check (120 seconds). Each addressed seat must reply exactly with its own line:\n"
+        body = "FactoryOps readiness check (120 seconds). Reply exactly with the text AFTER your @mention, omitting the mention:\n"
         body += "\n".join(
             f"@{self.config['seat_addresses'][role]} FACTORYOPS_READY {role} {readiness['nonce']}"
             for role in self.config["required_seats"]
         )
         self.post_message(body)
+
+    def progress(self) -> None:
+        status = self.store.status()
+        if set(status["receipts"]) != {"inspector", "stresser"} or set(status["verdicts"]) != {"inspector", "stresser"}:
+            return
+        readiness = status.get("readiness")
+        if not status["required_seats_live"]:
+            if (
+                readiness is None
+                or readiness["revision"] != status["revision"]
+                or time.time() >= readiness["expires_at"]
+            ):
+                self.challenge_seats()
+            return
+        if status["request"] is None:
+            request = self.store.request_approval()
+            self.post_message(self.request_text(request))
 
     def handle(self, frame: dict[str, Any]) -> None:
         event, data = frame.get("event"), frame.get("data")
@@ -180,6 +195,7 @@ class GateSession:
         if type(sequence) is not int or sequence != data.get("sequence") or data.get("type") != event:
             self.store.connection_blocked("invalid_sequence")
             raise WorkflowError("Switch scalar event cursor is invalid or unsupported.")
+        self.progress()
         payload = data.get("payload")
         if not isinstance(payload, dict):
             raise WorkflowError("Malformed Switch payload.")
@@ -209,17 +225,7 @@ class GateSession:
                 self.store.write_report()
         else:
             self.store.advance_cursor(self.namespace, sequence)
-        status = self.store.status()
-        if (
-            set(status["receipts"]) == {"inspector", "stresser"}
-            and set(status["verdicts"]) == {"inspector", "stresser"}
-            and status["request"] is None
-        ):
-            if status["required_seats_live"]:
-                request = self.store.request_approval()
-                self.post_message(self.request_text(request))
-            elif self.readiness_revision != status["revision"]:
-                self.challenge_seats()
+        self.progress()
 
 
 def serve(directory: Path, configuration: Path) -> None:
@@ -312,7 +318,13 @@ def serve(directory: Path, configuration: Path) -> None:
                         reader.start()
                         try:
                             while True:
-                                item = incoming.get(timeout=6)
+                                try:
+                                    item = incoming.get(timeout=6)
+                                except queue.Empty:
+                                    # Pings are consumed by the reader; idle domain traffic is normal.
+                                    store._require_stream()
+                                    gate.progress()
+                                    continue
                                 if isinstance(item, BaseException):
                                     raise item
                                 gate.handle(item)
