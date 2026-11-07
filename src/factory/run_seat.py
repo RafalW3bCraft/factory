@@ -27,7 +27,9 @@ import re
 import sys
 from pathlib import Path
 from typing import NoReturn
+from urllib.parse import urlparse
 
+from factory.config import asset_directory
 from factory.env import load_env_safe
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -47,7 +49,7 @@ def usage() -> None:
 
 def mandates_dir() -> Path:
     """Locate mandates directory adjacent to repository or tooling."""
-    for cand in (FACTORY_ROOT / "mandates", FACTORY_ROOT.parent / "mandates"):
+    for cand in (asset_directory("mandates"),):
         if cand.is_dir():
             return cand
     die(f"No mandates/ directory found next to {FACTORY_ROOT}")
@@ -74,6 +76,8 @@ def extract_mandate_model(text: str) -> str | None:
 
 async def run(seat: str, model_id: str | None) -> None:
     """Execute the seat lifecycle with credential isolation and OpenCode adapter."""
+    if os.environ.get("FACTORY_ALLOW_UNSAFE_HOST") != "1":
+        die("Legacy host execution requires FACTORY_ALLOW_UNSAFE_HOST=1; use the native governed runner otherwise.")
     # Load .env safely from factory root if not already in environment
     load_env_safe(FACTORY_ROOT / ".env")
 
@@ -81,7 +85,7 @@ async def run(seat: str, model_id: str | None) -> None:
     if not result_repo:
         die("RESULT_REPO environment variable is not set. Export the absolute path of the result repo.")
     result_repo_path = Path(result_repo)
-    if not result_repo_path.is_dir():
+    if not result_repo_path.is_absolute() or not result_repo_path.is_dir():
         die(f"RESULT_REPO does not exist or is not a directory: {result_repo}")
     if not (result_repo_path / ".git").exists():
         die(
@@ -127,6 +131,8 @@ async def run(seat: str, model_id: str | None) -> None:
 
     # OpenCode server auth (S5) & custom client factory
     server_password = os.environ.get("OPENCODE_SERVER_PASSWORD", "").strip()
+    if not server_password:
+        die("OPENCODE_SERVER_PASSWORD is required for legacy host execution.")
     client_factory = None
     if server_password:
         from band.integrations.opencode import HttpOpencodeClient
@@ -145,8 +151,9 @@ async def run(seat: str, model_id: str | None) -> None:
         client_factory = auth_client_factory
 
     base_url = os.environ.get("OPENCODE_BASE_URL", "http://127.0.0.1:4096").strip()
-    if not (base_url.startswith("http://") or base_url.startswith("https://")):
-        die(f"Invalid OPENCODE_BASE_URL: '{base_url}'. Must begin with http:// or https://")
+    parsed_url = urlparse(base_url)
+    if parsed_url.scheme not in {"http", "https"} or parsed_url.hostname != "127.0.0.1" or parsed_url.username:
+        die("Invalid OPENCODE_BASE_URL: only authenticated loopback services at 127.0.0.1 are permitted.")
 
     raw_timeout = os.environ.get("TURN_TIMEOUT_S", "900").strip()
     try:

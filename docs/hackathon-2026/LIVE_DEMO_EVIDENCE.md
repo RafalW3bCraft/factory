@@ -1,20 +1,37 @@
-# FactoryOps Live Demo Evidence
+# FactoryOps live demonstration evidence
 
-## Status
+## Current status
 
-**Pending interactive Switch Console and Discord setup.** This file deliberately
-contains no claimed Switch messages, human approvals, model responses, or live
-test results until they have occurred.
+Switch Console 0.40.1 is installed and its desktop process was launched on the
+current Parrot computer. Its temporary loopback control endpoint does not prove
+a Switch local collaboration server is running. Codex provider status inside
+Console, Discord connection, linked-human identity, native room responses, and
+the complete issue workflow remain unverified.
 
-## Required capture checklist
+No Switch messages, agent actions, approvals, or video results are manufactured
+here. Local automated fixtures, direct Codex CLI inference, and historical CI
+are separately recorded in [BASELINE.md](BASELINE.md).
 
-- Linked Discord human identity and the addressed issue message.
-- Four native Codex agents in the Switch room.
-- Smith's RED result, candidate commit SHA, and GREEN result.
-- Inspector's independent static PASS or FAIL with command output.
-- Stresser's independent local dynamic PASS or FAIL with command output.
-- Foreman's approval request, the human's later affirmative reply, and the
-  Foreman's SHA-bound approval record.
-- Final evidence-backed completion report.
-- Redacted room export or screenshots, stored only after review for secrets and
-  personal data.
+## Required reviewed capture
+
+| Evidence | Status |
+|---|---|
+| Actual Switch server address and public health result | Pending |
+| Console Codex provider installed and signed in | Pending |
+| Private Discord channel/room and linked human | Pending |
+| Four distinct addressed fresh native replies within 120 seconds | Pending |
+| Foreman self-contained sibling handoff | Pending |
+| Smith's actual RED failure, fix, full candidate SHA and GREEN | Pending |
+| Inspector and Stresser's independent same-SHA commands/verdicts | Pending |
+| Withheld/denied/ambiguous approval demonstration | Pending |
+| Candidate-specific request and actual later linked-human reply | Pending |
+| Final `human-reviewed demonstration` or enforced signed artifact, with mode identified | Pending |
+| Fresh reply after idle, plus supported stop/restart | Pending |
+| Reviewed transcript/screenshots, video and public links | Pending |
+| Actual operator submission receipt | Pending |
+
+Keep raw captures in private operator-controlled storage until reviewed for
+credentials and personal data. Record base commit plus content fingerprint,
+fixture candidate SHA, actual commands/exits, room message order and genuine
+identity mappings. Do not commit tokens, private configuration, or unreviewed
+transcripts. Follow [the canonical runbook](DEMO_RUNBOOK.md).

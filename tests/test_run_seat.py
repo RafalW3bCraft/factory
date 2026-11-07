@@ -63,6 +63,10 @@ class RunSeatUnitTests(unittest.TestCase):
 
 class RunSeatExecutionTests(unittest.TestCase):
     def setUp(self) -> None:
+        self.env_patch = patch.dict(
+            os.environ, {"FACTORY_ALLOW_UNSAFE_HOST": "1", "OPENCODE_SERVER_PASSWORD": "test-only-password"}
+        )
+        self.env_patch.start()
         self.tmp_dir = TemporaryDirectory()
         self.repo_dir = Path(self.tmp_dir.name) / "repo"
         self.repo_dir.mkdir()
@@ -70,6 +74,7 @@ class RunSeatExecutionTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.tmp_dir.cleanup()
+        self.env_patch.stop()
 
     def test_run_missing_result_repo(self) -> None:
         with patch.dict(os.environ, {}, clear=True):

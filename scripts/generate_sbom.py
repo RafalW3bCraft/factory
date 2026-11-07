@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import NAMESPACE_URL, uuid5
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent
 
@@ -27,8 +27,6 @@ def parse_uv_lock(lock_path: Path) -> list[dict[str, Any]]:
 
 def build_cyclonedx_sbom(packages: list[dict[str, Any]]) -> dict[str, Any]:
     """Construct CycloneDX 1.5 JSON SBOM structure."""
-    now_iso = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-
     components: list[dict[str, Any]] = []
     for pkg in packages:
         name = pkg.get("name", "")
@@ -52,13 +50,14 @@ def build_cyclonedx_sbom(packages: list[dict[str, Any]]) -> dict[str, Any]:
 
         components.append(comp)
 
+    components.sort(key=lambda c: (c["name"], c["version"]))
+    identity = json.dumps(components, sort_keys=True, separators=(",", ":"))
     return {
         "bomFormat": "CycloneDX",
         "specVersion": "1.5",
-        "serialNumber": "urn:uuid:7c9e6679-2423-4c96-9811-darkfactory030",
+        "serialNumber": f"urn:uuid:{uuid5(NAMESPACE_URL, identity)}",
         "version": 1,
         "metadata": {
-            "timestamp": now_iso,
             "tools": [{"vendor": "RafalW3bCraft", "name": "dark-factory-sbom-gen", "version": "0.3.0"}],
             "component": {
                 "type": "application",
@@ -67,7 +66,7 @@ def build_cyclonedx_sbom(packages: list[dict[str, Any]]) -> dict[str, Any]:
                 "licenses": [{"license": {"id": "MIT"}}],
             },
         },
-        "components": sorted(components, key=lambda c: c["name"]),
+        "components": components,
     }
 
 

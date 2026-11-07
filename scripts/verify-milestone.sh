@@ -1,70 +1,34 @@
 #!/usr/bin/env bash
-# verify-milestone.sh — Deterministic verifier for Dark Factory milestones (Finding H8).
-#
-# Verifies that:
-#   1. The target git repository and specified revision exist.
-#   2. The working tree has no uncommitted changes (git status is clean).
-#   3. The specified verification/test command executes with exit code 0.
-#
-# Usage:
-#   ./scripts/verify-milestone.sh <repo-path> [commit-hash] [test-command...]
+# Verify an exact checkout before and after a mandatory explicit command.
 set -euo pipefail
-
-if [[ $# -lt 1 || "$1" == "-h" || "$1" == "--help" ]]; then
-    echo "Usage: ./scripts/verify-milestone.sh <repo-path> [commit-hash] [test-command...]"
-    exit 0
-fi
-
-REPO="$1"
-REVISION="${2:-HEAD}"
-if [[ $# -ge 2 ]]; then
-    shift 2
-elif [[ $# -eq 1 ]]; then
-    shift 1
-fi
-
-if [[ $# -gt 0 ]]; then
-    TEST_CMD=("$@")
+# Inspect the named checkout, never an inherited alternate Git administration path.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE
+export GIT_NO_REPLACE_OBJECTS=1 GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null
+die() { echo "ERROR: $*" >&2; exit 1; }
+usage() { echo 'Usage: verify-milestone.sh --repo PATH --commit FULL_SHA -- COMMAND [ARG...]'; }
+if [[ ${1:-} == -h || ${1:-} == --help ]]; then usage; exit 0; fi
+if [[ ${1:-} == --repo ]]; then
+    [[ $# -ge 5 && $3 == --commit ]] || { usage >&2; exit 1; }
+    REPO="$2"; REVISION="$4"; shift 4
+    [[ ${1:-} != -- ]] || shift
 else
-    TEST_CMD=()
+    [[ $# -ge 2 ]] || { usage >&2; exit 1; }
+    REPO="$1"; REVISION="$2"; shift 2
 fi
-
-echo "=== Dark Factory Milestone Verifier ==="
-echo "Target repo: $REPO"
-echo "Revision:    $REVISION"
-
-# 1. Verify directory and git repo
-if [[ ! -d "$REPO/.git" ]]; then
-    echo "ERROR: $REPO is not a git repository." >&2
-    exit 1
-fi
-
-# 2. Verify commit exists
-COMMIT_HASH="$(git -C "$REPO" rev-parse --verify "$REVISION" 2>/dev/null || echo '')"
-if [[ -z "$COMMIT_HASH" ]]; then
-    echo "ERROR: Revision '$REVISION' not found in repository." >&2
-    exit 1
-fi
-echo "Verified commit hash: $COMMIT_HASH"
-
-# 3. Verify clean git status
-STATUS="$(git -C "$REPO" status --porcelain)"
-if [[ -n "$STATUS" ]]; then
-    echo "ERROR: Working tree is dirty (uncommitted changes found):" >&2
-    echo "$STATUS" >&2
-    exit 1
-fi
-echo "Verified working tree: clean"
-
-# 4. Run test verification command if provided
-if [[ ${#TEST_CMD[@]} -gt 0 ]]; then
-    echo "Executing verification command: ${TEST_CMD[*]}"
-    if ! (cd "$REPO" && "${TEST_CMD[@]}"); then
-        echo "ERROR: Verification command failed with non-zero exit code." >&2
-        exit 1
-    fi
-    echo "Verified test execution: exit code 0"
-fi
-
-echo "RESULT: Milestone verification PASSED."
-exit 0
+[[ $# -gt 0 ]] || die 'A verification command is mandatory; no checks were executed.'
+[[ "$REVISION" =~ ^[0-9a-f]{40}$ ]] || die 'Revision must be a full lowercase commit SHA.'
+[[ "$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$REPO" rev-parse --is-inside-work-tree 2>/dev/null || true)" == true ]] || die 'Target is not a git working tree.'
+assert_candidate() {
+    [[ "$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$REPO" rev-parse HEAD)" == "$REVISION" ]] || die 'Checkout HEAD does not match the requested candidate.'
+    [[ -z "$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$REPO" status --porcelain --untracked-files=all)" ]] || die 'Working tree is dirty.'
+}
+assert_candidate
+echo "Verified exact candidate: $REVISION"
+set +e
+(cd "$REPO" && "$@")
+command_exit=$?
+set -e
+echo "Verification command exit code: $command_exit"
+[[ $command_exit == 0 ]] || die 'Verification command failed.'
+assert_candidate
+echo 'RESULT: Milestone verification PASSED.'

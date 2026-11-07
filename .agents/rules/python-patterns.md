@@ -6,7 +6,7 @@ globs:
 ---
 # Python Patterns
 
-> This file extends [common/patterns.md](common-patterns.md) with Python specific content.
+> This file complements [the Python patterns skill](../skills/python-patterns/SKILL.md).
 
 ## Protocol (Duck Typing)
 

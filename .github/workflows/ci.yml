@@ -21,6 +21,7 @@ jobs:
         uses: astral-sh/setup-uv@v3
         with:
           enable-cache: true
+          version: "0.12.10"
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -28,7 +29,7 @@ jobs:
           python-version: "3.12"
 
       - name: Synchronize dependencies
-        run: uv sync --frozen
+        run: uv sync --frozen --all-groups
 
       - name: Lint with Ruff
         run: uv run ruff check .
@@ -47,6 +48,12 @@ jobs:
 
       - name: Run test suite with coverage gate (>=85%)
         run: uv run pytest -q --cov=src --cov-fail-under=85
+
+      - name: Package and supply-chain parity
+        run: |
+          uv build
+          uv run --frozen python scripts/sync_assets.py --check
+          uv run --frozen python scripts/check_supply_chain.py
 
       - name: Dependency vulnerability audit
         run: uv run pip-audit

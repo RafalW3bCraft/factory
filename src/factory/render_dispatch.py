@@ -26,10 +26,11 @@ import re
 import sys
 from pathlib import Path
 
+from factory.config import asset_directory
 from factory.env import load_env_safe
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent.parent
-DISPATCH_DIR = FACTORY_ROOT / "dispatch"
+DISPATCH_DIR = asset_directory("dispatch")
 
 TEMPLATE_ALIASES = {
     "engineering": "software-engineering.md.tmpl",

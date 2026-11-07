@@ -11,11 +11,14 @@ dependencies = [
     "band-sdk[opencode]>=4.0.0",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.0",
+    "httpx==0.28.1",
+    "websockets==17.1",
 ]
 
 [project.scripts]
 factory = "factory:main"
 factoryops = "factory.factoryops:run_cli"
+factoryops-ecc = "factory.config:main"
 
 [dependency-groups]
 dev = [
@@ -31,7 +34,7 @@ dev = [
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-exclude = [".agents", ".venv", "workspace"]
+exclude = [".agents", ".venv", "workspace", "src/factory/assets/ecc"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP"]

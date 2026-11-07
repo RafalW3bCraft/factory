@@ -125,4 +125,4 @@ This rule works with:
 - [testing.md](common-testing.md) - Test coverage requirements
 - [security.md](common-security.md) - Security checklist
 - [git-workflow.md](common-git-workflow.md) - Commit standards
-- [agents.md](common-agents.md) - Agent delegation
+- [code-reviewer](../agents/code-reviewer.md) - Available general review agent

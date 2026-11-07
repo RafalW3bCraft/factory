@@ -4,6 +4,23 @@ All notable changes to the Dark Factory project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased — FactoryOps readiness work
+
+Native Switch/Codex is the primary demonstration, with disposable candidate
+worktrees, exact-revision contained verification, a durable separate approval
+controller, packaged ECC resources, and local regression checks. Factory changes
+remain uncommitted/unpushed; current evidence belongs in
+[BASELINE.md](docs/hackathon-2026/BASELINE.md).
+
+### Documentation correction — November 7, 2026
+
+Removed duplicated legacy setup from the README, separated supervised human
+review from authoritative controller approval, and made the existing demo
+runbook the canonical native setup guide. The0.3.0 entries below are historical
+release descriptions: environment sanitization and prompt rules do not isolate
+credentials/egress, historic coverage is not current coverage, and PID checks
+alone do not prove descendant containment. See [SECURITY.md](SECURITY.md).
+
 ## [0.3.0] - 2026-10-06
 
 ### Added

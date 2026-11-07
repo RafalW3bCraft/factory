@@ -18,6 +18,8 @@ import re
 import sys
 from pathlib import Path
 
+from factory.config import asset_directory
+
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 REQUIRED_SEATS = ("foreman", "smith", "inspector", "stresser")
@@ -115,7 +117,7 @@ def lint(dirpath: Path) -> int:
 
 def main() -> None:
     """CLI entrypoint for mandate linter."""
-    target_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "mandates"
+    target_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else asset_directory("mandates")
     sys.exit(lint(target_dir))
 
 

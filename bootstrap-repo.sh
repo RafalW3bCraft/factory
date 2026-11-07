@@ -27,7 +27,24 @@ if [[ -d "$TARGET/.git" ]]; then
 fi
 
 echo "[bootstrap] Creating clean repository at $TARGET …"
-mkdir -p "$TARGET"
+# Refuse existing content, path aliases, and nested repositories before writes.
+python3 - "$TARGET" <<'PY'
+import subprocess
+import sys
+from pathlib import Path
+target = Path(sys.argv[1])
+if target.exists() or target.is_symlink():
+    sys.exit("ERROR: target must be a new, nonexistent directory.")
+if target.absolute() != target.resolve():
+    sys.exit("ERROR: symlink or noncanonical paths are not allowed.")
+parent = target.parent
+if not parent.is_dir():
+    sys.exit("ERROR: target parent must already exist.")
+result = subprocess.run(["git", "-C", str(parent), "rev-parse", "--show-toplevel"], capture_output=True)
+if result.returncode == 0:
+    sys.exit("ERROR: refusing a nested repository inside an existing checkout.")
+PY
+mkdir -- "$TARGET"
 git -C "$TARGET" init -b main
 
 # .gitignore (comprehensive, polyglot & secrets)
@@ -107,8 +124,8 @@ README
 git -C "$TARGET" config core.pager cat
 git -C "$TARGET" config user.name "factory-bootstrap"
 git -C "$TARGET" config user.email "factory-bootstrap@factory.invalid"
-git -C "$TARGET" add .
-git -C "$TARGET" commit -m "chore: bootstrap project repository for Dark Factory"
+git -C "$TARGET" add -- .gitignore README.md
+git -C "$TARGET" -c core.hooksPath=/dev/null commit --no-gpg-sign -m "chore: bootstrap project repository for Dark Factory"
 
 echo "[bootstrap] Done. Repository initialised at $TARGET"
 echo "[bootstrap] Next: set RESULT_REPO=$TARGET in .env and run ./preflight.sh"

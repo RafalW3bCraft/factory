@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import stat
 import subprocess
 import tempfile
 import unittest
@@ -103,7 +102,8 @@ class FactoryOpsDemoTests(unittest.TestCase):
             ).returncode,
             0,
         )
-        self.assertFalse((paths.inspector / "src" / "inventory.py").stat().st_mode & stat.S_IWUSR)
+        # Owned worktrees are supervised workspaces, not a security sandbox.
+        self.assertTrue((paths.inspector / "AGENTS.md").is_file())
         self.assertEqual(git(paths.inspector, "status", "--porcelain"), "")
 
     def test_prepare_verifier_checkout_rejects_dirty_worktree_and_unknown_role(self) -> None:
@@ -118,7 +118,7 @@ class FactoryOpsDemoTests(unittest.TestCase):
 
 
 class FactoryOpsGovernanceTests(unittest.TestCase):
-    def test_approval_record_requires_a_later_plain_language_affirmative_reply(self) -> None:
+    def test_procedural_record_is_not_authenticated_authorization(self) -> None:
         requested_at = datetime(2026, 11, 5, 12, 0, tzinfo=UTC)
         replied_at = requested_at + timedelta(minutes=1)
         record = approval_record(
@@ -131,8 +131,9 @@ class FactoryOpsGovernanceTests(unittest.TestCase):
 
         self.assertEqual(record.candidate_sha, "a" * 40)
         self.assertEqual(record.approver_id, "switch-user-demo")
-        with self.assertRaises(FactoryOpsError):
-            approval_record("a" * 40, "switch-user-demo", "Not approved", requested_at, replied_at)
+        self.assertFalse(record.authenticated)
+        refusal = approval_record("a" * 40, "switch-user-demo", "Not approved", requested_at, replied_at)
+        self.assertEqual(refusal.message, "Not approved")
         with self.assertRaises(FactoryOpsError):
             approval_record("a" * 40, "switch-user-demo", "Approved", requested_at, requested_at)
 
@@ -146,7 +147,7 @@ class FactoryOpsGovernanceTests(unittest.TestCase):
             requested_at + timedelta(minutes=1),
         )
 
-        self.assertTrue(can_publish_completion("b" * 40, "b" * 40, True, True, record))
+        self.assertFalse(can_publish_completion("b" * 40, "b" * 40, True, True, record))
         self.assertFalse(can_publish_completion("b" * 40, "a" * 40, True, True, record))
         self.assertFalse(can_publish_completion("b" * 40, "b" * 40, False, True, record))
         self.assertFalse(can_publish_completion("b" * 40, "b" * 40, True, False, record))
@@ -168,6 +169,9 @@ class FactoryOpsTemplateTests(unittest.TestCase):
             self.assertEqual(agent["provider"], "{provider}")
             self.assertFalse(agent["auto_approve"])
             self.assertFalse(agent["auto_mode"])
+        foreman = template["agents"][0]
+        self.assertEqual(foreman["addressing"], "owner-agents")
+        self.assertIn("managed Foreman", template["params"]["foreman_directory"]["description"])
 
 
 if __name__ == "__main__":

@@ -1,41 +1,49 @@
-# Security Policy & Threat Model
+# Security policy and current boundaries
 
-## Reporting Security Vulnerabilities
+Report vulnerabilities privately to `thewhitefalcon13@proton.me`. Do not publish
+unpatched vulnerabilities or secrets in public issues.
 
-We take security seriously. If you discover a vulnerability or potential exploit in the Dark Factory system, please report it privately:
+FactoryOps has three distinct execution modes:
 
-- **Security Contact:** `thewhitefalcon13@proton.me`
-- **Response Window:** Acknowledgement within 48 hours; assessment and mitigation within 7 business days.
-- **Please Do Not:** Open public GitHub issues or public pull requests disclosing unpatched vulnerabilities.
+- Native Switch/Codex: four supervised seats with automatic approvals disabled.
+  Separate working directories and `isolation: isolated` are not demonstrated
+  OS sandboxes. Agents inherit owner permissions. Prompts are procedural policy.
+- Legacy Band/OpenCode: host execution requires explicit unsafe opt-in. Removing
+  one environment variable does not prevent same-UID credential access. Never
+  use it for adversarial workloads or treat it as the native Switch demo.
+- Trusted verification runner: exports bounded regular Git blobs for an exact
+  clean SHA; excludes runtime `.switch`, `.git`, `.codex` and `.env` data.
+  Container commands request nonroot, read-only mounts/root, no network,
+  no capabilities, no privilege escalation and CPU/memory/PID/time/output bounds.
+  Production clearance requires real effective-containment tests, not flags or
+  mocked engine responses alone.
 
----
+In supervised mode, the report is a human-reviewed demonstration with procedural
+approval, not an authoritative release. Enforced mode requires the controller.
+The private SQLite controller ledger binds candidate manifest, independently
+executed receipts, authenticated native verifier acknowledgments, request nonce,
+opaque owner/room/message IDs and event order. Generic prose/regexes and caller
+PASS booleans do not authorize completion. Only the controller's signed local
+artifact is authoritative. Agents can still post ordinary conversation; that is
+not a release decision. Failed checks, changed candidates, rejection and stream
+loss revoke pending authorization. Replay cursors and generation fences survive
+normal restart; gaps/takeover stop for operator recovery.
 
-## Threat Model & Security Architecture
+Controller keys/state must reside outside all agent-writable directories under a
+separate OS principal. Mode0700 and HMAC do not isolate malicious same-UID host
+processes. Native provider tool permissions, credential exclusion and deployment
+separation must be verified before production use. Local fixture preparation
+uses cooperative locks/atomic writes and refuses aliases; it does not defend
+against an unrestricted same-UID process racing shared Git administration.
 
-Dark Factory operates multiple autonomous AI agents with tool execution capabilities. The architecture enforces multi-layered technical containment:
+Never print/copy `.env`, agent configuration or auth files. Discord credentials
+belong in Switch's connection form; observer credentials belong only in private
+controller configuration. Native credentials must never be mounted into test
+containers. HTTP/WebSocket bearer calls stay on configured loopback origins,
+with redirects/proxies disabled. Source/log/message text is untrusted data.
 
-### 1. Prompt Injection & Untrusted Input Boundary (Finding S6)
-- **Principle:** Repository content, source code files, commit histories, PR diffs, and issue descriptions are treated strictly as **DATA, NEVER INSTRUCTIONS**.
-- Operating mandates explicitly instruct agents to ignore override instructions embedded in analyzed repositories or fuzzing targets.
-- Handoff messages between seats are structured markdown contracts with verifiable requirement IDs (`REQ-*`, `SEC-*`).
-
-### 2. Execution Sandboxing & Least Privilege (Finding S1)
-- **Container Isolation:** In containerized deployments (`docker-compose.sandbox.yml` / `Dockerfile.sandbox`), seats execute as an unprivileged user (`UID 1000`, `factory`).
-- **Mount Restriction:** Only the target result repository (`RESULT_REPO`) is mounted read-write (`rw`) to `/workspace`.
-- **Host Protection:** The host filesystem, host `$HOME`, and root partitions are never mounted into seat containers.
-- **Privilege Dropping:** All Linux capabilities are dropped (`cap_drop: [ALL]`), and privilege escalation is disabled (`no-new-privileges:true`).
-
-### 3. Credential Isolation & Secret Hygiene (Finding S2)
-- **Process Isolation:** The OpenCode server runs with a sanitized environment (`env -u FEATHERLESS_API_KEY`) so that child tool processes cannot inspect provider API keys from environment listings.
-- **Per-Seat Token Injection:** Individual seat runners receive only their specific seat credentials via isolated process variables (`BAND_AGENT_ID`, `BAND_API_KEY`), preventing cross-seat token access.
-- **Mandate Auditing:** The mandate linter (`lint_mandates.py`) continuously scans all seat mandates to block hardcoded API keys, bearer tokens, and private keys.
-
-### 4. Network Boundaries & Egress Control (Finding S6)
-- **Localhost Only:** The dynamic testing seat (@Stresser) is restricted to local service addresses (`127.0.0.1` / `localhost`). Scanning or attacking external IP ranges, host networks, or third-party domains is strictly prohibited.
-- **Authenticated Server:** The OpenCode headless API enforces HTTP Basic Authentication via `OPENCODE_SERVER_PASSWORD` (Finding S5), preventing unauthorized local process execution.
-
----
-
-## Safe Environment Parsing (Finding S3)
-
-All factory shell scripts and Python runners parse `.env` files using deterministic KEY=VALUE parsers (`scripts/load_env.sh` and `factory.env`). Shell execution (`source .env` or `eval`) is strictly prohibited, neutralizing arbitrary command execution payloads embedded in environment files.
+Historical independent local review is not final clearance for later changes.
+Live integration, fresh independent Inspector/Stresser clearance, effective
+native permissions and operational recovery remain separate release gates.
+See [the setup/verification runbook](docs/hackathon-2026/DEMO_RUNBOOK.md) for actual
+operator checks; no production clearance is implied by local test success.

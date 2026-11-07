@@ -34,9 +34,9 @@ Intercept the response flow to offer the user a choice about response depth **be
 
 ### Step 1 — Estimate input tokens
 
-Use the repository's canonical context-budget heuristics to estimate the prompt's token count mentally.
+Estimate the prompt's token count mentally using the self-contained heuristics below.
 
-Use the same calibration guidance as [context-budget](../context-budget/SKILL.md):
+The upstream context-budget skill is not included in this curated snapshot. Use these heuristic calibration values:
 
 - prose: `words × 1.3`
 - code-heavy or mixed/code blocks: `chars / 4`

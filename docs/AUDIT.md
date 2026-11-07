@@ -1,6 +1,10 @@
-# Factory Hardening Audit Ledger
+# Historical hardening audit ledger
 
-## 1. Baseline vs Hardened Metrics
+The tables below record earlier work, not release clearance for the current event candidate. Historic security labels and coverage percentages are not current guarantees; prompt restrictions and sanitized environments do not establish isolation. See [the current baseline](hackathon-2026/BASELINE.md) and [live evidence](hackathon-2026/LIVE_DEMO_EVIDENCE.md). No new CI/live claim follows from these historical records.
+
+## Factory Hardening Audit Ledger
+
+## Historical baseline vs hardened metrics
 
 Branch: `hardening/prod-ready`  
 Baseline Commit: `e449c7f`  

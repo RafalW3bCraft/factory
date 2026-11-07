@@ -635,8 +635,10 @@ version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "band-sdk", extra = ["opencode"] },
+    { name = "httpx" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "websockets" },
 ]
 
 [package.dev-dependencies]
@@ -653,8 +655,10 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "band-sdk", extras = ["opencode"], specifier = ">=4.0.0" },
+    { name = "httpx", specifier = "==0.28.1" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
+    { name = "websockets", specifier = "==17.1" },
 ]
 
 [package.metadata.requires-dev]

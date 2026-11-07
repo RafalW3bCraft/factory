@@ -62,34 +62,23 @@ class ShellScriptsIntegrationTests(unittest.TestCase):
             subprocess.run(["git", "-C", str(repo), "add", "file.txt"], check=True)
             subprocess.run(["git", "-C", str(repo), "commit", "-m", "initial commit"], check=True)
 
-            # Test clean revision pass
-            res_clean = subprocess.run(["bash", str(script), str(repo), "HEAD"], capture_output=True, text=True)
-            self.assertEqual(res_clean.returncode, 0)
-            self.assertIn("Milestone verification PASSED", res_clean.stdout)
-
-            # Test invalid revision fail
-            res_bad_rev = subprocess.run(
-                ["bash", str(script), str(repo), "nonexistent-branch-or-commit"], capture_output=True, text=True
-            )
-            self.assertEqual(res_bad_rev.returncode, 1)
-            self.assertIn("Revision 'nonexistent-branch-or-commit' not found", res_bad_rev.stderr)
-
-            # Test with passing command
-            res_cmd_pass = subprocess.run(
-                ["bash", str(script), str(repo), "HEAD", "true"], capture_output=True, text=True
-            )
+            sha = subprocess.run(
+                ["git", "-C", str(repo), "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+            ).stdout.strip()
+            # A requested revision without a test command never proves a pass.
+            res_empty = subprocess.run(["bash", str(script), str(repo), sha], capture_output=True, text=True)
+            self.assertEqual(res_empty.returncode, 1)
+            self.assertIn("mandatory", res_empty.stderr)
+            res_cmd_pass = subprocess.run(["bash", str(script), str(repo), sha, "true"], capture_output=True, text=True)
             self.assertEqual(res_cmd_pass.returncode, 0)
-
-            # Test with failing command
+            self.assertIn("Milestone verification PASSED", res_cmd_pass.stdout)
             res_cmd_fail = subprocess.run(
-                ["bash", str(script), str(repo), "HEAD", "false"], capture_output=True, text=True
+                ["bash", str(script), str(repo), sha, "false"], capture_output=True, text=True
             )
             self.assertEqual(res_cmd_fail.returncode, 1)
             self.assertIn("Verification command failed", res_cmd_fail.stderr)
-
-            # Test dirty working tree failure
             (repo / "file.txt").write_text("modified content\n")
-            res_dirty = subprocess.run(["bash", str(script), str(repo), "HEAD"], capture_output=True, text=True)
+            res_dirty = subprocess.run(["bash", str(script), str(repo), sha, "true"], capture_output=True, text=True)
             self.assertEqual(res_dirty.returncode, 1)
             self.assertIn("Working tree is dirty", res_dirty.stderr)
 

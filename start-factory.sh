@@ -22,6 +22,11 @@
 #   - Mission-level wall-clock timeout and file-based kill switch factory.kill (R2).
 #   - Process group tracking for clean child termination without PID-reuse race (R4).
 set -euo pipefail
+umask 077
+if [[ ${FACTORY_ALLOW_UNSAFE_HOST:-} != 1 ]]; then
+    echo 'ERROR: Legacy host execution is disabled. Native Switch uses its governed runner. For trusted local legacy use only, set FACTORY_ALLOW_UNSAFE_HOST=1.' >&2
+    exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FACTORY_ROOT="$SCRIPT_DIR"
@@ -31,7 +36,13 @@ cd "$FACTORY_ROOT"
 # shellcheck source=scripts/load_env.sh disable=SC1091
 source "$FACTORY_ROOT/scripts/load_env.sh"
 
-LOGS_DIR="$FACTORY_ROOT/logs"
+LOGS_DIR="${FACTORY_STATE_DIR:-$FACTORY_ROOT/logs}"
+IDENTITY_SCRIPT="$FACTORY_ROOT/src/factory/process_identity.py"
+FACTORY_PYTHON="${FACTORY_PYTHON:-$FACTORY_ROOT/.venv/bin/python}"
+[[ -x "$FACTORY_PYTHON" ]] || { echo 'ERROR: factory Python is unavailable; synchronize the locked environment.' >&2; exit 1; }
+command -v setsid >/dev/null || { echo 'ERROR: Linux setsid is required.' >&2; exit 1; }
+command -v flock >/dev/null || { echo 'ERROR: Linux flock is required.' >&2; exit 1; }
+[[ ! -L "$LOGS_DIR" ]] || { echo 'ERROR: symlink state directory is forbidden.' >&2; exit 1; }
 PID_DIR="$LOGS_DIR/pids"
 SRC_DIR="$FACTORY_ROOT/src"
 OC_PORT="${OPENCODE_PORT:-4096}"
@@ -49,8 +60,13 @@ if ! [[ "$OC_PORT" =~ ^[0-9]+$ ]] || (( OC_PORT < 1024 || OC_PORT > 65535 )); th
     die "Invalid OPENCODE_PORT: '$OC_PORT'. Must be an integer between 1024 and 65535."
 fi
 
+[[ "$MAX_RESTARTS" =~ ^[0-9]+$ && ${#MAX_RESTARTS} -le 2 ]] || die 'MAX_RESTARTS must be an integer from 0 to 99.'
+[[ "$MISSION_TIMEOUT_S" =~ ^[1-9][0-9]*$ && ${#MISSION_TIMEOUT_S} -le 8 ]] || die 'MISSION_TIMEOUT_S must be a bounded positive integer.'
+mkdir -p "$LOGS_DIR"
+exec 9>"$LOGS_DIR/factory.lock"
+flock -n 9 || die 'Another factory supervisor owns this state directory.'
 # Initialize run-isolated logs (R3)
-RUN_ID="$(date -u +%Y%m%d_%H%M%SZ)"
+RUN_ID="$(date -u +%Y%m%d_%H%M%S_%N)_$$"
 RUN_LOG_DIR="$LOGS_DIR/runs/$RUN_ID"
 mkdir -p "$RUN_LOG_DIR" "$PID_DIR"
 ln -sfn "$RUN_LOG_DIR" "$LOGS_DIR/latest"
@@ -59,7 +75,7 @@ EVENTS="$RUN_LOG_DIR/events.log"
 : > "$EVENTS"
 
 # Retention policy: prune runs older than the newest 20 runs
-find "$LOGS_DIR/runs" -mindepth 1 -maxdepth 1 -type d | sort | head -n -20 | xargs rm -rf 2>/dev/null || true
+# Retention is explicit operator maintenance; startup never deletes evidence.
 
 event() { echo "$(date -u +%FT%TZ) $*" | tee -a "$EVENTS" >&2; }
 
@@ -99,7 +115,7 @@ load_env_safe "$FACTORY_ROOT/.env"
 : "${RESULT_REPO:?RESULT_REPO must be set to the absolute path of the result git repository}"
 [[ "$RESULT_REPO" == /* ]] || die "RESULT_REPO must be an absolute path: $RESULT_REPO"
 [[ -d "$RESULT_REPO" ]] || die "RESULT_REPO does not exist: $RESULT_REPO"
-[[ -d "$RESULT_REPO/.git" ]] || die "RESULT_REPO is not a git repository (no .git found): $RESULT_REPO. Run ./bootstrap-repo.sh $RESULT_REPO first."
+[[ "$(git -C "$RESULT_REPO" rev-parse --is-inside-work-tree 2>/dev/null || true)" == true ]] || die "RESULT_REPO is not a git repository (no .git found): $RESULT_REPO. Run ./bootstrap-repo.sh $RESULT_REPO first."
 [[ ! -f "$RESULT_REPO/.git/index.lock" ]] || die "Stale git lock detected: $RESULT_REPO/.git/index.lock. Remove it if no other git process is active."
 [[ -n "${FEATHERLESS_API_KEY:-}" ]] || die "FEATHERLESS_API_KEY is empty (set it in .env)."
 
@@ -112,7 +128,6 @@ echo "[factory] Run ID: $RUN_ID (logs: logs/runs/$RUN_ID)"
 
 OPENCODE_BIN="$(command -v opencode 2>/dev/null)" || die "opencode not found on PATH"
 command -v uv >/dev/null 2>&1 || die "uv not found on PATH"
-FACTORY_PYTHON="$FACTORY_ROOT/.venv/bin/python"
 [[ -x "$FACTORY_PYTHON" ]] || die "factory virtualenv python not found: $FACTORY_PYTHON. Run uv sync first."
 
 echo "[factory] Validating mandates …"
@@ -137,6 +152,7 @@ for seat in "${SEATS[@]}"; do check_not_running "$seat"; done
 port_in_use "$OC_PORT" && die "Something is already listening on port $OC_PORT. Is opencode serve already running?"
 
 echo "$$" > "$PID_DIR/factory.pid"
+"$FACTORY_PYTHON" "$IDENTITY_SCRIPT" record "$PID_DIR/factory.identity.json" --pid "$$"
 
 # ── cleanup on exit ─────────────────────────────────────────────────────────
 
@@ -147,14 +163,14 @@ cleanup() {
     echo "[factory] Shutting down factory processes…"
     for seat in "${SEATS[@]}"; do
         if [[ -n "${PIDS[$seat]:-}" ]]; then
-            kill "${PIDS[$seat]}" 2>/dev/null || true
+            "$FACTORY_PYTHON" "$IDENTITY_SCRIPT" stop "$PID_DIR/${seat}.identity.json" || true
         fi
         rm -f "$PID_DIR/${seat}.pid"
     done
     if [[ -n "$OC_PID" ]]; then
-        kill "$OC_PID" 2>/dev/null || true
+        "$FACTORY_PYTHON" "$IDENTITY_SCRIPT" stop "$PID_DIR/opencode.identity.json" || true
     fi
-    rm -f "$PID_DIR/opencode.pid" "$PID_DIR/factory.pid" "$FACTORY_ROOT/factory.kill"
+    rm -f "$PID_DIR/opencode.pid" "$PID_DIR/factory.pid" "$PID_DIR/factory.identity.json" "$FACTORY_ROOT/factory.kill"
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -165,11 +181,12 @@ trap 'exit 143' TERM
 echo "[factory] Starting authenticated opencode serve on 127.0.0.1:$OC_PORT …"
 # S2: Unset FEATHERLESS_API_KEY from server env so child shells cannot print it
 # S5: OPENCODE_SERVER_PASSWORD is set for Basic Auth
-env -u FEATHERLESS_API_KEY \
+setsid env -u FEATHERLESS_API_KEY \
     OPENCODE_SERVER_PASSWORD="$OPENCODE_SERVER_PASSWORD" \
     "$OPENCODE_BIN" serve --hostname=127.0.0.1 --port="$OC_PORT" >"$RUN_LOG_DIR/opencode.log" 2>&1 &
 OC_PID=$!
 echo "$OC_PID" > "$PID_DIR/opencode.pid"
+"$FACTORY_PYTHON" "$IDENTITY_SCRIPT" record "$PID_DIR/opencode.identity.json" --pid "$OC_PID" --group
 
 ready=0
 for _ in $(seq 1 30); do
@@ -188,8 +205,6 @@ done
 
 if [[ $ready -eq 1 ]]; then
     echo "[factory] opencode server ready and authenticated."
-elif port_in_use "$OC_PORT"; then
-    echo "[factory] WARN: health endpoint did not answer, but port $OC_PORT is open; continuing." >&2
 else
     die "opencode did not become ready in 30s; see logs/latest/opencode.log"
 fi
@@ -215,7 +230,8 @@ except Exception:
     local agent_id="${seat_creds%% *}"
     local api_key="${seat_creds#* }"
 
-    BAND_AGENT_ID="$agent_id" \
+    [[ -n "$agent_id" && -n "$api_key" ]] || die "Credentials unavailable for required seat $seat."
+    setsid env BAND_AGENT_ID="$agent_id" \
     BAND_API_KEY="$api_key" \
     OPENCODE_BASE_URL="http://127.0.0.1:$OC_PORT" \
     OPENCODE_SERVER_PASSWORD="$OPENCODE_SERVER_PASSWORD" \
@@ -225,6 +241,7 @@ except Exception:
 
     PIDS[$seat]=$!
     echo "${PIDS[$seat]}" > "$PID_DIR/${seat}.pid"
+    "$FACTORY_PYTHON" "$IDENTITY_SCRIPT" record "$PID_DIR/${seat}.identity.json" --pid "${PIDS[$seat]}" --group
 }
 
 for seat in "${SEATS[@]}"; do
@@ -300,10 +317,8 @@ while true; do
                 event "FATAL seat=$seat exhausted restart budget ($MAX_RESTARTS restarts within ${RESTART_WINDOW_S}s)"
                 GAVE_UP[$seat]=1
                 # R1 Fail-fast: If Foreman or any critical seat exhausts budget, fail fast
-                if [[ "$seat" == "foreman" ]]; then
-                    event "FATAL Lead orchestrator (@Foreman) failed; aborting mission"
-                    exit 1
-                fi
+                event "FATAL Required seat $seat failed; aborting mission"
+                exit 1
             else
                 event "RESTART seat=$seat attempt=$count/$MAX_RESTARTS window=${RESTART_WINDOW_S}s"
                 echo "----- restart #$count $(date -u +%FT%TZ) -----" >>"$RUN_LOG_DIR/${seat}.log"

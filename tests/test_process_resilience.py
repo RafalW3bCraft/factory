@@ -3,18 +3,38 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import unittest
+import unittest.mock
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 FACTORY_ROOT = Path(__file__).resolve().parent.parent
 
 
 class ProcessResilienceTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temporary = TemporaryDirectory()
+        self.root = Path(self.temporary.name)
+        for name in ("start-factory.sh", "stop-factory.sh"):
+            shutil.copy2(FACTORY_ROOT / name, self.root / name)
+        shutil.copytree(FACTORY_ROOT / "scripts", self.root / "scripts")
+        (self.root / "src/factory").mkdir(parents=True)
+        shutil.copy2(FACTORY_ROOT / "src/factory/process_identity.py", self.root / "src/factory/process_identity.py")
+        self.env_patch = unittest.mock.patch.dict(
+            os.environ, {"FACTORY_ALLOW_UNSAFE_HOST": "1", "FACTORY_PYTHON": shutil.which("python3") or "python3"}
+        )
+        self.env_patch.start()
+
+    def tearDown(self) -> None:
+        self.env_patch.stop()
+        self.temporary.cleanup()
+
     def test_stop_factory_corrupt_pid_files(self) -> None:
         """stop-factory.sh should safely ignore and remove corrupt or unsafe PID files."""
-        stop_script = FACTORY_ROOT / "stop-factory.sh"
-        pids_dir = FACTORY_ROOT / "logs" / "pids"
+        stop_script = self.root / "stop-factory.sh"
+        pids_dir = self.root / "logs" / "pids"
         pids_dir.mkdir(parents=True, exist_ok=True)
 
         corrupt_cases = {
@@ -41,7 +61,7 @@ class ProcessResilienceTests(unittest.TestCase):
 
     def test_start_factory_rejects_invalid_opencode_ports(self) -> None:
         """start-factory.sh must fail fast if OPENCODE_PORT is out-of-bounds or non-numeric."""
-        start_script = FACTORY_ROOT / "start-factory.sh"
+        start_script = self.root / "start-factory.sh"
 
         invalid_ports = ["80", "1023", "65536", "notanumber", "-1"]
         for port in invalid_ports:
@@ -54,8 +74,8 @@ class ProcessResilienceTests(unittest.TestCase):
 
     def test_start_factory_concurrent_supervisor_detection(self) -> None:
         """start-factory.sh must abort if factory.pid contains a running PID."""
-        start_script = FACTORY_ROOT / "start-factory.sh"
-        pids_dir = FACTORY_ROOT / "logs" / "pids"
+        start_script = self.root / "start-factory.sh"
+        pids_dir = self.root / "logs" / "pids"
         pids_dir.mkdir(parents=True, exist_ok=True)
         factory_pid_file = pids_dir / "factory.pid"
 

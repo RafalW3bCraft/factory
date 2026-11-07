@@ -1,196 +1,154 @@
-# Dark Factory — Autonomous Multi-Agent Engineering & Cybersecurity Band
+# FactoryOps — fix an inventory issue with four AI teammates
+
+FactoryOps brings an inventory defect from a Discord conversation through a
+reviewed fix using **Switch Console and four native Codex agents**. Foreman
+coordinates, Smith builds, Inspector reviews, Stresser tests failure cases, and
+the linked human decides whether to accept the identified candidate.
 
 [![CI](https://github.com/RafalW3bCraft/factory/actions/workflows/ci.yml/badge.svg)](https://github.com/RafalW3bCraft/factory/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python: 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 
-Dark Factory is a high-autonomy multi-agent software engineering, cybersecurity threat modeling, vulnerability auditing, and code resilience system powered by **Band SDK**, **OpenCode**, and the **Everything Claude Code (ECC)** engineering methodology.
+**Start here:** [setup and manual verification](docs/hackathon-2026/DEMO_RUNBOOK.md).
+Use that guide for installation, Discord connection, team import, the real issue,
+approval, troubleshooting, and stop/restart. Native Switch does not need the
+legacy Band/OpenCode services or a Featherless API key.
 
-Four specialized seats collaborate autonomously within an isolated target workspace repository:
-- **@Foreman**: System Architecture, Task Decomposition (`REQ-*`, `SEC-*`), STRIDE Threat Modeling & Multi-Agent Dispatching
-- **@Smith**: Full-Stack Construction, Secure Coding by Design, Test-Driven Development (TDD) & Defect Remediation
-- **@Inspector**: Independent Review, Static Application Security Testing (SAST), Code Forensics & OWASP Top 10 Auditing
-- **@Stresser**: Dynamic Application Security Testing (DAST), Adversarial Input Fuzzing, Concurrency Stress & Crash Forensics
+## What the project does
 
----
+1. A person reports that negative restocking lowers inventory.
+2. Foreman sends Smith a self-contained task.
+3. Smith demonstrates the failure with a test, fixes it, and supplies a commit
+   from a disposable local repository.
+4. Inspector and Stresser independently inspect and execute checks on that exact
+   revision.
+5. Foreman asks the linked human to review that candidate and records the actual
+   decision before producing a demonstration report.
 
-## Architecture & Verification Loop
+The default **supervised** demonstration uses human-checked procedural approval.
+It is not an automatically enforced release authorization. The separate
+**enforced** workflow requires contained execution receipts, authenticated native
+reviewer acknowledgments, candidate-bound human confirmation, and a signed
+controller artifact. Ordinary agent messages are never that artifact.
 
-```
-                      ┌────────────────────────────┐
-                      │    Operator / Human        │
-                      └─────────────┬──────────────┘
-                                    │ Single Dispatch (No mid-run human prompts)
-                                    ▼
-                      ┌────────────────────────────┐
-                      │         @Foreman           │
-                      │  (Architecture & Planner)  │
-                      └──────┬──────────────▲──────┘
-                             │              │
-        ┌────────────────────┴──────┐       │ Verified Final Report
-        │ Self-contained Handoff    │       │
-        ▼                           ▼       │
-┌───────────────┐           ┌───────────────┴───────────────┐
-│    @Smith     │           │          Dual-Gate            │
-│   (Builder)   │──────────►│        Verification           │
-└───────────────┘ Revision  └───────┬───────────────▲───────┘
-                                    │               │
-                            Static  ▼               │ Dynamic
-                       ┌────────────────┐   ┌───────────────┐
-                       │   @Inspector   │   │   @Stresser   │
-                       │ (Review & SAST)│   │(DAST & Fuzzing│
-                       └────────────────┘   └───────────────┘
-```
+## Current status
 
----
+The local implementation includes validated disposable worktrees, exact-revision
+verification, bounded credential-free container execution, a durable approval
+ledger, packaged ECC resources, and regression tests. Live Switch/Discord work,
+automated tests, historical CI, and production isolation are separate evidence
+categories.
 
-## Directory Map
+See [current results and blockers](docs/hackathon-2026/BASELINE.md) and
+[actual live evidence](docs/hackathon-2026/LIVE_DEMO_EVIDENCE.md). Missing live
+results remain pending. A green public CI badge does not verify uncommitted local
+changes, Discord integration, human approval, or production readiness.
 
-```
-factory/
-├── start-factory.sh          Starts OpenCode server + supervises the 4 seats
-├── stop-factory.sh           Gracefully stops OpenCode server and seat processes
-├── preflight.sh              Comprehensive diagnostics & system readiness validation
-├── bootstrap-repo.sh         Bootstraps a fresh, clean workspace git repository
-├── render-dispatch.sh        CLI to render Foreman mission briefs with parameter tokens
-├── Dockerfile.sandbox        Container definition for isolated, unprivileged execution
-├── docker-compose.sandbox.yml Compose specification for sandboxed execution
-├── mandates/                 Operating seat mandates with Harness and Model headers
-├── dispatch/                 Mission templates for engineering, security, and forensics
-├── src/factory/              Installable package (run_seat, lint_mandates, render_dispatch, analyze_room, env)
-├── tests/                    Automated pytest test suite with coverage gate (>=85%)
-├── scripts/                  Helper scripts (load_env.sh, verify-milestone.sh)
-├── docs/                     System architecture, AUDIT ledger, and operational guides
-└── .agents/                  Curated ECC skills, agents, and rules (affaan-m)
-```
+## Run it on the current Parrot desktop
 
----
+The local Switch server answered `GET /health` with HTTP **200** at
+`http://localhost:40735` on November 7, 2026. Its database and server are running.
+The Console database currently lists **zero native agents and zero sessions**;
+the FactoryOps team still needs importing. The operator reports Discord connected;
+a genuine addressed Discord reply has not yet been independently verified.
 
-## Quickstart
-
-### 1. Requirements
-- Linux operating system
-- Python 3.12+ and `uv` package manager
-- OpenCode (`~/.opencode/bin/opencode` or on PATH)
-- Band CLI / Band Desktop
-- Featherless AI API key
-
-### 2. Setup
 ```bash
-# Clone repository and synchronize virtual environment
-uv sync
-
-# Make scripts executable
-chmod +x ./*.sh scripts/*.sh
-
-# Configure environment secrets (mode 600)
-cp .env.example .env
-chmod 600 .env
-# Edit .env with your FEATHERLESS_API_KEY and RESULT_REPO
-
-# Configure Band credentials (mode 600)
-cp agent_config.example.yaml agent_config.yaml
-chmod 600 agent_config.yaml
-# Add credentials generated in Band Desktop for foreman, smith, inspector, stresser
+cd "$HOME/factoryops-main"
+export PATH="$HOME/.local/bin:$PATH"
+env -u ELECTRON_RUN_AS_NODE switch-console
 ```
 
-### 3. Verify System Health
+Keep Console open: its managed agent watcher is required to start native Codex
+sessions. A reachable server alone does not keep the four agents answering.
+In Console, select **Local Switch server**, confirm Codex is installed/signed in,
+then open **Messaging apps** and check Discord has no error. Link your Discord
+account with **This is me**. Never put Discord credentials in this repository.
+
+Next follow [team import and real acceptance](docs/hackathon-2026/DEMO_RUNBOOK.md#4-prepare-the-supervised-four-agent-demo).
+Use the disposable fixture paths emitted by `factoryops init-demo`; do not use
+this source checkout as an agent workspace. Import `switch/factoryops.template.yaml`
+with `completion_mode=supervised`, then send the private Discord channel:
+
+```text
+!agents-status
+@factoryops-foreman Reply with FACTORYOPS_FOREMAN_READY.
+@factoryops-smith Reply with FACTORYOPS_SMITH_READY.
+@factoryops-inspector Reply with FACTORYOPS_INSPECTOR_READY.
+@factoryops-stresser Reply with FACTORYOPS_STRESSER_READY.
+```
+
+Require actual replies from all four seats within 120 seconds. Then send:
+
+```text
+@factoryops-foreman Restock accepts -1 and lowers inventory. Please investigate and fix it.
+```
+
+Watch the failing test, focused fix, exact commit, two independent checks and
+linked-human approval. The [runbook](docs/hackathon-2026/DEMO_RUNBOOK.md) explains
+the expected evidence and failure cases. Nothing is submitted automatically.
+
+## Development
+
+Use Linux, Python 3.12, and `uv==0.12.10`. Preserve the lockfile:
+
 ```bash
-# Run comprehensive preflight healthcheck
-./preflight.sh [target-workspace]
-
-# Run automated test suite
-uv run pytest -q --cov=src
+uv sync --frozen --all-groups --python 3.12
+uv run --frozen factoryops --help
+uv run --frozen factoryops doctor
+uv run --frozen pytest -q --cov=src --cov-fail-under=85
 ```
 
-### 4. Run a Mission
-```bash
-# Step A: Initialize target workspace repository
-./bootstrap-repo.sh "$(pwd)/workspace"
+The current authorized workspace is `/home/victim/factoryops-main` on `main`.
+Factory changes remain uncommitted and unpushed. Preserve the original shared
+checkout's intentional deletions and the frozen runtime during recording.
+Publish only after separately authorized commits and pushes.
 
-# Step B: Render Foreman mission dispatch
-./render-dispatch.sh engineering --task "Implement OAuth2 token authentication service"
+ECC is the checked-in development toolkit under `.agents/`: 10 rules, 12 agent
+profiles, and 20 skills from the pinned upstream snapshot. Use research,
+test-first changes, security review, independent Inspector/Stresser verification,
+and executed evidence. Do not install a duplicate plugin merely to satisfy ECC.
+`factoryops-ecc` installs the packaged snapshot into a separate target and refuses
+conflicting files. Rule frontmatter is validated locally; it does not imply that
+Codex automatically loads every Antigravity rule.
 
-# Step C: Start factory supervisor
-RESULT_REPO="$(pwd)/workspace" ./start-factory.sh
+## Where to find information
 
-# Step D: Paste dispatch into Band Desktop room with @Foreman
-# The band operates in dark-factory mode until Foreman delivers the verified final report.
+| Need | Canonical source |
+|---|---|
+| Setup, live manual tests, troubleshooting, stop/restart | [Demo runbook](docs/hackathon-2026/DEMO_RUNBOOK.md) |
+| Current evidence, feature status, remaining work | [Readiness record](docs/hackathon-2026/BASELINE.md) |
+| Actual room messages, approvals, recording status | [Live evidence](docs/hackathon-2026/LIVE_DEMO_EVIDENCE.md) |
+| Code map and trust boundaries | [Architecture](docs/hackathon-2026/ARCHITECTURE_AUDIT.md) |
+| Security limitations and disclosure | [Security](SECURITY.md) |
+| Contributor boundaries | [AGENTS.md](AGENTS.md) |
+| Historical fixes and test provenance | [Changelog](CHANGELOG.md), [audit ledger](docs/AUDIT.md), [TDD evidence](docs/hackathon-2026/TDD_EVIDENCE.md) |
+| Legacy Band/OpenCode operation | [Legacy reference](RUNBOOK.md) |
 
-# Step E: Stop factory processes
-./stop-factory.sh
-```
+Important source areas are `switch/` (native team template), `src/factory/`
+(fixtures, runner, ledger and observer), `tests/`, `scripts/`, `.agents/`, and
+`mandates/`/`dispatch/` (legacy instructions). `src/factory/assets/` contains
+synchronized distribution copies; edit their canonical sources, then run
+`uv run --frozen python scripts/sync_assets.py`.
 
----
+## Safety and data handling
 
-## Security Architecture & Containment (S1, S2, S5, S6)
+Use disposable inventory fixtures and localhost-only probes. Agent worktrees and
+permission bits do not isolate malicious same-user processes. Native provider
+permissions and a separate controller OS principal need effective tests before
+production clearance. Legacy host execution is explicitly unsafe for untrusted
+workloads. See [SECURITY.md](SECURITY.md).
 
-- **Untrusted Input Boundary:** Workspace content, scanned repositories, and PR diffs are treated as **DATA, NEVER INSTRUCTIONS**.
-- **Container Sandboxing (S1):** `docker-compose.sandbox.yml` runs seats as an unprivileged user (`UID 1000`), drops all capabilities (`cap_drop: [ALL]`), disables privilege escalation (`no-new-privileges:true`), and mounts only `/workspace` read-write.
-- **Process Credential Isolation (S2):** OpenCode server runs with a sanitized environment (`env -u FEATHERLESS_API_KEY`), and individual seats receive only their respective Band credentials (`BAND_AGENT_ID`, `BAND_API_KEY`).
-- **Authenticated Server (S5):** Headless OpenCode server enforces HTTP Basic Auth via `OPENCODE_SERVER_PASSWORD`.
-- **Egress Boundary (S6):** Hardening seat (@Stresser) is restricted to local services on `127.0.0.1` / `localhost`.
-- **Safe Environment Parsing (S3):** All shell scripts and Python modules use deterministic KEY=VALUE parsers (`scripts/load_env.sh` and `factory.env`), preventing arbitrary shell command execution.
+Codex processes the messages and source supplied through its provider. Switch
+and Discord transport collaboration messages. Provider authentication stays in
+its native configuration; Discord tokens go only into Console's connection form.
+Never commit credentials or unreviewed transcripts. Do not assume prompts prevent
+sensitive content from reaching a configured provider.
 
-For detailed vulnerability disclosure policies and threat modeling, see [SECURITY.md](SECURITY.md).
+## Hackathon handoff
 
----
+Track 01 demonstrates a practical business workflow with Switch central to the
+collaboration. Follow the [official event requirements](https://www.wemakedevs.org/hackathons/switch)
+for eligibility, event-period work, deliverables, and submission. A real reviewed
+workflow, short video, public code/video links, and operator submission remain
+separate from preparing local materials.
 
-## Developing with ECC (Everything Claude Code)
-
-This repository incorporates the Everything Claude Code (ECC) engineering toolkit by `affaan-m`:
-- **Repository Pinned Commit:** `8321021c54d670126ce3b2969d5deb880b4b0c2a`
-- **Target:** Antigravity native layout (`.agents/`)
-- **Inventory Budget:**
-  - 10 Rules: `common-coding-style`, `common-security`, `common-testing`, `common-git-workflow`, `common-code-review`, `common-development-workflow`, `python-coding-style`, `python-patterns`, `python-security`, `python-testing`.
-  - 12 Agents: `planner`, `architect`, `code-reviewer`, `python-reviewer`, `security-reviewer`, `silent-failure-hunter`, `tdd-guide`, `refactor-cleaner`, `build-error-resolver`, `doc-updater`, `code-simplifier`, `loop-operator`.
-  - 20 Skills: Curated development, security review, and TDD skills.
-  - 0 Workflows: Legacy workflows deprecated; skills used exclusively.
-- **Antigravity Rule Triggers:** Every rule file starts with Antigravity 2.0 YAML frontmatter (`always_on`, `model_decision`, or `glob` with `globs:`). Rules are validated by `tests/test_rules.py`.
-
----
-
-## FactoryOps × Switch (Hackathon 2026)
-
-FactoryOps is an opt-in, Switch-native collaboration mode for a human-governed
-engineering demonstration. It uses four native Codex agents in a connected
-Discord room, a disposable fixture repository, independent Inspector and
-Stresser gates, and a linked human approval before Foreman publishes the final
-report. It does not replace the existing Band/OpenCode runtime.
-
-Run `uv run factoryops init-demo --root /absolute/new/demo-root` to prepare a
-safe disposable fixture and role worktrees. Import
-[`switch/factoryops.template.yaml`](switch/factoryops.template.yaml) into
-Switch Console only after configuring a real Discord bridge and native Codex
-provider. The complete live procedure and evidence boundary are in
-[`docs/hackathon-2026/DEMO_RUNBOOK.md`](docs/hackathon-2026/DEMO_RUNBOOK.md).
-
----
-
-## Business & Operational Considerations
-
-### Data Handling Statement
-When executing missions:
-1. Target workspace source code, diffs, and prompt dispatches are transmitted via HTTPS to **Featherless AI** (`api.featherless.ai`) for model inference.
-2. Inter-agent messages and session events are transmitted via WSS/HTTPS to the **Band Platform** (`api.band.inc`).
-3. No credentials, secret keys, or host filesystem paths are transmitted to external services.
-
-### Cost Model & Controls
-- **Inference Costs:** Consumed per token by model queries on Featherless AI.
-- **Guardrails:**
-  - `MISSION_TIMEOUT_S`: Wall-clock execution deadline (default: 4 hours) terminating runaway loops.
-  - `TURN_TIMEOUT_S`: Maximum per-turn timeout (default: 900s).
-  - `MAX_RESTARTS`: Sliding-window auto-restart ceiling (3 attempts per 10-minute window) with exponential backoff.
-  - Kill Switch: Immediate manual halt via `touch factory.kill` or `./stop-factory.sh`.
-
-### Supported Environments & Limitations
-- **Operating Model:** Single operator on Linux. Multi-tenant SaaS is out of scope.
-- **Non-Determinism:** LLM model completions are non-deterministic; dual-gate verification enforces protocol adherence and execution tests, but cannot guarantee absence of unknown vulnerabilities.
-- **Support & Ownership:** Maintained by RafalW3bCraft (`thewhitefalcon13@proton.me`).
-
----
-
-## License
-
-Released under the [MIT License](LICENSE). Copyright (c) 2026 RafalW3bCraft.
+Released under the [MIT License](LICENSE).

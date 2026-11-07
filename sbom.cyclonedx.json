@@ -1,10 +1,9 @@
 {
   "bomFormat": "CycloneDX",
   "specVersion": "1.5",
-  "serialNumber": "urn:uuid:7c9e6679-2423-4c96-9811-darkfactory030",
+  "serialNumber": "urn:uuid:7aec9f9b-2ce2-574f-a90c-a13601d5541f",
   "version": 1,
   "metadata": {
-    "timestamp": "2026-10-06T12:30:22Z",
     "tools": [
       {
         "vendor": "RafalW3bCraft",
@@ -143,12 +142,12 @@
     {
       "type": "library",
       "name": "certifi",
-      "version": "2026.7.22",
-      "purl": "pkg:pypi/certifi@2026.7.22",
+      "version": "2026.10.23",
+      "purl": "pkg:pypi/certifi@2026.10.23",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55"
+          "content": "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
         }
       ]
     },
@@ -257,12 +256,12 @@
     {
       "type": "library",
       "name": "filelock",
-      "version": "4.0.9",
-      "purl": "pkg:pypi/filelock@4.0.9",
+      "version": "4.2.9",
+      "purl": "pkg:pypi/filelock@4.2.9",
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "635e7d67fa92654eed444e75e9ca18426d34e77ad9c469bf4373f75a932f7b22"
+          "content": "96530b7c538d4ea08493ab067247aab7948c54d8cd622cce711c97cccc5d9896"
         }
       ]
     },
