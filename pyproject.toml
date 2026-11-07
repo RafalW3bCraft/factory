@@ -15,6 +15,7 @@ dependencies = [
 
 [project.scripts]
 factory = "factory:main"
+factoryops = "factory.factoryops:run_cli"
 
 [dependency-groups]
 dev = [

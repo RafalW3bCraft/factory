@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "hardening/*"]
+    branches: [main, "hardening/*", flip-the-switch-2026]
   pull_request:
     branches: [main]
 
